@@ -546,7 +546,7 @@ if (!singleton) {
     function get_detailed_message(ff_response, player_id) {
         if (ff_response.no_data) {
             // Show 'No data' if the API returned all nulls
-            return `<span style=\"font-weight: bold; margin-right: 6px;\">FairFight:</span><span style=\"background: #444; color: #fff; font-weight: bold; padding: 2px 6px; border-radius: 4px; display: inline-block;\">No data</span>`;
+            return `<span style=\"font-weight: bold; margin-right: 6px;\">FairFight:</span><span style=\"background: #444; color: #fff; font-weight: bold; padding: 2px 2px; border-radius: 4px; display: inline-block;\">No data</span>`;
         }
         const ff_string = get_ff_string(ff_response)
 
@@ -557,10 +557,10 @@ if (!singleton) {
         if (ff_response.bs_estimate_human) {
             // Use the same FF color for BS estimate
             const bsColor = get_ff_colour(ff_response.value);
-            statDetails = `<span style=\"font-size: 11px; font-weight: normal; margin-left: 8px; vertical-align: middle; color: #cccccc; font-style: italic;\">Est. Stats: <span style="color: ${bsColor}">${ff_response.bs_estimate_human}</span></span>`;
+            statDetails = `<span style=\"font-size: 11px; font-weight: normal; margin-left: 8px; vertical-align: middle; color: #cccccc; font-style: italic;\">Est. TBS: <span style="font-weight: bold;color: ${bsColor}">${ff_response.bs_estimate_human}</span></span>`;
         }
 
-        return `<span style=\"font-weight: bold; margin-right: 6px;\">FairFight:</span><span style=\"background: ${background_colour}; color: ${text_colour}; font-weight: bold; padding: 2px 6px; border-radius: 4px; display: inline-block;\">${ff_string}</span>${statDetails}`;
+        return `<span style=\"font-weight: bold; margin-right: 6px;\">FF:</span><span style=\"background: ${background_colour}; color: ${text_colour}; font-weight: bold; padding: 2px 2px; border-radius: 4px; display: inline-block;\">${ff_string}</span>${statDetails}`;
     }
 
     function get_ff_string_short(ff_response, player_id) {
@@ -765,7 +765,7 @@ if (!singleton) {
             element.classList.add('ff-scouter-indicator');
             if (!element.classList.contains('indicator-lines')) {
                 element.classList.add('indicator-lines');
-                element.style.setProperty("--arrow-width", "20px");
+                element.style.setProperty("--arrow-width", "10px");
 
                 // Ugly - does removing this break anything?
                 element.classList.remove("small");
