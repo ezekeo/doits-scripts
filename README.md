@@ -92,7 +92,7 @@ Torn PDA and Tampermonkey will automatically detect and apply updates.
 
 Maintained by **Doitsburger**
 
-GitHub: https://github.com/ezekeo
+GitHub: https://github.com/doitsburger
 
 ---
 
