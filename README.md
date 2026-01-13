@@ -50,6 +50,11 @@ Updates are handled automatically.
 ### 🛰️ DoitsBurgers FF Scouter
 Scouts and displays Fight Finder (FF) information in a quick, readable format to assist with decision-making during fights.
 
+> **Attribution:**  
+> This script is based on and inspired by work from the original FF Scouter authors within the Torn community.  
+> This version includes personal modifications, maintenance, and enhancements by **Doitsburger**.  
+> Full credit and respect to the original creators.
+
 **Install (Browser / Torn PDA):**  
 https://raw.githubusercontent.com/ezekeo/doits-scripts/main/ff-scouter/doitsburgers-ff-scouter.user.js
 
@@ -83,6 +88,29 @@ Torn PDA and Tampermonkey will automatically detect and apply updates.
 
 ---
 
+## 🧑‍💻 Author & Maintainer
+
+Maintained by **Doitsburger**
+
+GitHub: https://github.com/ezekeo
+
+---
+
+## 📄 Licence & Credits
+
+- Original FF Scouter concept and implementation by members of the Torn community  
+- Modifications and ongoing maintenance by **Doitsburger**  
+- Provided for personal use — please respect original authorship
+---
+
+## 🛡️ Notes
+
+- Scripts do **not** store API keys unless explicitly stated
+- No data is sent to third-party services
+- Use at your own risk — Torn rules apply
+
+---
+
 ## 🧑‍💻 Author
 
 Created and maintained by **Doitsburger**
@@ -93,5 +121,4 @@ GitHub: https://github.com/ezekeo
 
 ## 📄 Licence
 
-These scripts are provided for personal use.  
-Do not redistribute without permission.
+These scripts are provided for personal use. 
