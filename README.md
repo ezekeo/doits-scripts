@@ -47,7 +47,7 @@ Updates are handled automatically.
 
 ## 🔧 Available Scripts
 
-### 🛰️ DoitsBurgers FF Scouter
+### 🛰️ Doitsburgers FF Scouter
 Scouts and displays Fight Finder (FF) information in a quick, readable format to assist with decision-making during fights.
 
 > **Attribution:**  
