@@ -1,11 +1,15 @@
 // ==UserScript==
-// @name         1 One-Click Travel — One Click Return
-// @namespace    http://tampermonkey.net/
-// @version      7.0
-// @description  Separate floating travel buttons: one click for travel/return (fully automatic return)
+// @name         One Click Travel
+// @namespace    https://github.com/ezekeo/doits-scripts
+// @version      1.0.0
+// @description  One-click travel helper for Torn
+// @author       Doitsburger
 // @match        https://www.torn.com/*
-// @grant        GM_setValue
+// @icon         https://www.google.com/s2/favicons?sz=64&domain=torn.com
+// @updateURL    https://raw.githubusercontent.com/ezekeo/doits-scripts/main/one-click-travel/one-click-travel.user.js
+// @downloadURL  https://raw.githubusercontent.com/ezekeo/doits-scripts/main/one-click-travel/one-click-travel.user.js
 // @grant        GM_getValue
+// @grant        GM_setValue
 // ==/UserScript==
 
 (function(){
