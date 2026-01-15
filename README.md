@@ -38,8 +38,9 @@ Updates are handled automatically.
 2. Go to **Settings**
 3. Select **Userscripts**
 4. Tap **➕ Add Userscript**
-5. Paste the **RAW install link** for the script
-6. Save and enable the script
+5. **Select “Remote Load / Update”**
+6. Paste the **RAW install link** for the script
+7. Save and enable the script
 
 ⚠️ Make sure you use the **raw.githubusercontent.com** link, not the GitHub page link.
 
