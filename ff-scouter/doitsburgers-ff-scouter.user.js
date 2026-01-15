@@ -10,7 +10,36 @@
 // @downloadURL  https://raw.githubusercontent.com/ezekeo/doits-scripts/main/ff-scouter/doitsburgers-ff-scouter.user.js
 // @grant        GM_getValue
 // @grant        GM_setValue
+// @grant        GM_deleteValue
+// @grant        GM_xmlhttpRequest
+// @grant        GM_addStyle
+// @grant        GM_registerMenuCommand
 // ==/UserScript==
+
+(function() {
+    'use strict';
+    
+    // Check if API key exists and prompt if not
+    setTimeout(function() {
+        var storedKey = GM_getValue("limited_key", null);
+        if (!storedKey) {
+            var userKey = prompt(
+                "FF Scouter: API Key Required\n\n" +
+                "Please enter your limited API key from ffscouter.com\n" +
+                "This key is required for the script to work.",
+                ""
+            );
+            if (userKey && userKey.trim()) {
+                GM_setValue("limited_key", userKey.trim());
+                alert("API key saved! The page will now reload.");
+                window.location.reload();
+            } else if (userKey === null) {
+                alert("FF Scouter cannot work without an API key.\n" +
+                      "You can add it later via Tampermonkey menu > 'Enter Limited API Key'");
+            }
+        }
+    }, 2000);
+})();
 
 const FF_VERSION = 2.4;
 const API_INTERVAL = 30000;
