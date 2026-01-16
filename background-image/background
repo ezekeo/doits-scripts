@@ -1,10 +1,12 @@
 // ==UserScript==
 // @name         Background Image
-// @namespace    http://tampermonkey.net/
-// @version      1.5
+// @namespace    https://github.com/doitsburger/doits-scripts
+// @version      1.0.0
 // @description  Simple background for Torn.com with minimal emoji button
 // @author       Torn Player
 // @match        https://www.torn.com/*
+// @updateURL    https://raw.githubusercontent.com/doitsburger/doits-scripts/main/background-image/background
+// @downloadURL  https://raw.githubusercontent.com/doitsburger/doits-scripts/main/background-image/background
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @run-at       document-end
