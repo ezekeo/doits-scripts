@@ -93,6 +93,16 @@ https://raw.githubusercontent.com/doitsburger/doits-scripts/main/one-click-trave
 
 ---
 
+### 🖼️ Background Image
+
+Adds a simple custom background to Torn.com with a minimal emoji toggle button.  
+Lightweight, clean, and works seamlessly on both browser and Torn PDA.
+
+**Install (Browser / Torn PDA):**  
+https://raw.githubusercontent.com/doitsburger/doits-scripts/main/background-image/background
+
+---
+
 ## 🔄 Auto Updates
 
 All scripts include automatic update support.
