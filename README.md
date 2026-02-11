@@ -60,6 +60,9 @@ Before using this script, you **must**:
    **https://ffscouter.com**
 2. Use the **same API key** when prompted by the userscript
 
+**Install (Browser / Torn PDA):**  
+https://raw.githubusercontent.com/doitsburger/doits-scripts/main/ff-scouter/doitsburgers-ff-scouter.user.js
+
 👉 After installing the userscript, you will be prompted to enter this API key **the first time you visit a Torn profile page**.  
 This step is required for the script to function correctly.
 
@@ -78,9 +81,6 @@ This step is required for the script to function correctly.
 > This version includes modifications, maintenance, and enhancements by **doitsburger**.  
 >  
 > Full credit and respect to the original authors.
-
-**Install (Browser / Torn PDA):**  
-https://raw.githubusercontent.com/doitsburger/doits-scripts/main/ff-scouter/doitsburgers-ff-scouter.user.js
 
 ---
 
