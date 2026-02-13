@@ -1,15 +1,11 @@
 // ==UserScript==
-// @name         One Click Travel
-// @namespace    https://github.com/ezekeo/doits-scripts
-// @version      1.0.0
-// @description  One-click travel helper for Torn
-// @author       Doitsburger
+// @name         1 One-Click Travel — One Click Return
+// @namespace    http://tampermonkey.net/
+// @version      7.0
+// @description  Separate floating travel buttons: one click for travel/return (fully automatic return)
 // @match        https://www.torn.com/*
-// @icon         https://www.google.com/s2/favicons?sz=64&domain=torn.com
-// @updateURL    https://raw.githubusercontent.com/ezekeo/doits-scripts/main/one-click-travel/one-click-travel.user.js
-// @downloadURL  https://raw.githubusercontent.com/ezekeo/doits-scripts/main/one-click-travel/one-click-travel.user.js
-// @grant        GM_getValue
 // @grant        GM_setValue
+// @grant        GM_getValue
 // ==/UserScript==
 
 (function(){
@@ -90,7 +86,7 @@
     }
   }
 
-  function waitForSelector(selector, timeout=5000){
+  function waitForSelector(selector, timeout=1000){
     return new Promise((resolve,reject)=>{
       const el = document.querySelector(selector);
       if(el) return resolve(el);
@@ -211,7 +207,7 @@
     // Country picker button
     const pickerBtn = document.createElement('button');
     pickerBtn.id = 'torn-picker-btn';
-    pickerBtn.innerHTML = '🌏';
+    pickerBtn.innerHTML = '⚙️';
     pickerBtn.title = 'Change destination';
     Object.assign(pickerBtn.style,{
       position: 'fixed',
