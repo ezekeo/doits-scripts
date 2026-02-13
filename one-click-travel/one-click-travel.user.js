@@ -29,7 +29,7 @@
     { name:'Switzerland', city:'Zurich', flag:'/images/v2/travel_agency/flags/fl_switzerland.svg' },
     { name:'Japan', city:'Tokyo', flag:'/images/v2/travel_agency/flags/fl_japan.svg' },
     { name:'China', city:'Beijing', flag:'/images/v2/travel_agency/flags/fl_china.svg' },
-    { name:'United Arab Emirates', city:'Dubai', flag:'/images/v2/travel_agency/flags/fl_uae.svg' },
+    { name:'UAE', city:'Dubai', flag:'/images/v2/travel_agency/flags/fl_uae.svg' },
     { name:'South Africa', city:'Johannesburg', flag:'/images/v2/travel_agency/flags/fl_south_africa.svg' }
   ];
 
