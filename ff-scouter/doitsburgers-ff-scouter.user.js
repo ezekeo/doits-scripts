@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DoitsBurgers FF Scouter
 // @namespace    https://github.com/doitsburger/doits-scripts
-// @version      1.0.0
+// @version      1.0.1
 // @description  Scouter tool for FF and BS Estimates on Torn. Added last action row also displaying FF and quick attack button.
 // @author       rDacted, Weav3r, GFOUR - modded by Doitsburger
 // @match        https://www.torn.com/*
