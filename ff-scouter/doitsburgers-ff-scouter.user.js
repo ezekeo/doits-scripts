@@ -6,8 +6,8 @@
 // @author       rDacted, Weav3r, GFOUR - modded by Doitsburger
 // @match        https://www.torn.com/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=torn.com
-// @updateURL    https://raw.githubusercontent.com/ezekeo/doits-scripts/main/ff-scouter/doitsburgers-ff-scouter.user.js
-// @downloadURL  https://raw.githubusercontent.com/ezekeo/doits-scripts/main/ff-scouter/doitsburgers-ff-scouter.user.js
+// @updateURL    https://raw.githubusercontent.com/doitsburger/doits-scripts/main/ff-scouter/doitsburgers-ff-scouter.user.js
+// @downloadURL  https://raw.githubusercontent.com/doitsburger/doits-scripts/main/ff-scouter/doitsburgers-ff-scouter.user.js
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_deleteValue
