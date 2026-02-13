@@ -210,7 +210,7 @@
     // Country picker button
     const pickerBtn = document.createElement('button');
     pickerBtn.id = 'torn-picker-btn';
-    pickerBtn.innerHTML = '⚙️';
+    pickerBtn.innerHTML = '🌏';
     pickerBtn.title = 'Change destination';
     Object.assign(pickerBtn.style,{
       position: 'fixed',
