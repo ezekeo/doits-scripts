@@ -1,11 +1,14 @@
 // ==UserScript==
+// ==UserScript==
 // @name         1 One-Click Travel — One Click Return
-// @namespace    http://tampermonkey.net/
+// @namespace    https://github.com/doitsburger/doits-scripts
 // @version      7.0
 // @description  Separate floating travel buttons: one click for travel/return (fully automatic return)
 // @match        https://www.torn.com/*
 // @grant        GM_setValue
 // @grant        GM_getValue
+// @downloadURL  https://raw.githubusercontent.com/doitsburger/doits-scripts/refs/heads/main/one-click-travel/one-click-travel.user.js
+// @updateURL    https://raw.githubusercontent.com/doitsburger/doits-scripts/refs/heads/main/one-click-travel/one-click-travel.user.js
 // ==/UserScript==
 
 (function(){
