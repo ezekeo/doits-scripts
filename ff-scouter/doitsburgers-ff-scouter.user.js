@@ -41,6 +41,18 @@
     }, 2000);
 })();
 
+// Icon definitions
+const tornSymbol = `<svg class="torn-symbol" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="11" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    <text x="12" y="16" text-anchor="middle" font-family="Arial" font-weight="bold" font-size="14" fill="currentColor">T</text>
+</svg>`;
+
+function createPlaneSvg(isReturning) {
+    return `<svg class="plane-svg ${isReturning ? 'returning' : ''}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512">
+        <path d="M482.3 192c34.2 0 93.7 29 93.7 64c0 36-59.5 64-93.7 64l-116.6 0L265.2 495.9c-5.7 10-16.3 16.1-27.8 16.1l-56.2 0c-10.6 0-18.3-10.2-15.4-20.4l49-171.6L112 320 68.8 377.6c-3 4 0 6.4-12.8 6.4l-42 0c-7.8 0-14-6.3-14-14c0-1.3 .2-2.6 .5-3.9L32 256 .5 145.9c-.4-1.3-.5-2.6-.5-3.9c0-7.8 6.3-14 14-14l42 0c5 0 9.8 2.4 12.8 6.4L112 192l102.9 0-49-171.6C162.9 10.2 170.6 0 181.2 0l56.2 0c11.5 0 22.1 6.2 27.8 16.1L365.7 192l116.6 0z"/>
+    </svg>`;
+}
+
 const FF_VERSION = 2.4;
 const API_INTERVAL = 30000;
 const memberCountdowns = {};
@@ -229,7 +241,7 @@ if (!singleton) {
         background-color: #353535;
         border-bottom: 1px solid #000000;
         padding: 2px 0;
-        font-size: 12px;
+        font-size: 14px;
         color: #6c757d;
         display: none; /* Hidden by default, shown with data attribute */
     }
@@ -259,7 +271,7 @@ if (!singleton) {
     }
 
     .ff-scouter-attack-btn {
-        font-size: 14px;
+        font-size: 20px;
         text-decoration: none;
         padding: 0 4px;
         border-radius: 3px;
@@ -298,10 +310,10 @@ if (!singleton) {
     background: #28a745;
     color: white;
     border: 2px solid #3b82f6;
-    border-radius: 50%;
+    border-radius: 28px;
     width: 28px;
-    height: 28px;
-    font-size: 16px;
+    height: 40px;
+    font-size: 25px;
     font-weight: bold;
     cursor: pointer;
     box-shadow: 0 2px 10px rgba(0,0,0,0.3);
@@ -346,6 +358,20 @@ if (!singleton) {
         background: #28a745;
         font-weight: bold;
     }
+    /* Make torn symbol a different color (e.g., gold) */
+.torn-symbol {
+    fill: #FFD700 !important;
+}
+
+/* Departing plane (normal orientation) - green */
+.plane-svg:not(.returning) {
+    fill: #4CAF50 !important;
+}
+
+/* Returning plane (flipped) - orange/red */
+.plane-svg.returning {
+    fill: #FF5722 !important;
+}
     `);
 
     var BASE_URL = "https://ffscouter.com";
@@ -1094,11 +1120,12 @@ if (!singleton) {
 
         // Create sort options
         const options = [
-            { id: 'bs-high-low', text: 'BS: High to Low' },
-            { id: 'bs-low-high', text: 'BS: Low to High' },
-            { id: 'hospital-timer', text: 'Hospital Timer' },
-            { id: 'reset', text: 'Reset Order' }
-        ];
+    { id: 'bs-high-low', text: 'BS: High to Low' },
+    { id: 'bs-low-high', text: 'BS: Low to High' },
+    { id: 'hospital-timer', text: 'Hospital Timer' },
+    { id: 'traveling', text: 'Travel/Abroad' },   // <-- new option
+    { id: 'reset', text: 'Reset Order' }
+];
 
         options.forEach(option => {
             const optionBtn = document.createElement('button');
@@ -1138,35 +1165,44 @@ if (!singleton) {
     }
 
     function handleSortSelection(sortType) {
-        const sortPanel = document.getElementById('ff-scouter-sort-panel');
-        if (!sortPanel) return;
+    const sortPanel = document.getElementById('ff-scouter-sort-panel');
+    if (!sortPanel) return;
 
-        // Update active state
-        const allOptions = sortPanel.querySelectorAll('.ff-scouter-sort-option');
-        allOptions.forEach(option => option.classList.remove('active'));
+    // Update active state
+    const allOptions = sortPanel.querySelectorAll('.ff-scouter-sort-option');
+    allOptions.forEach(option => option.classList.remove('active'));
 
-        const selectedOption = sortPanel.querySelector(`[data-sort="${sortType}"]`);
-        if (selectedOption) {
-            selectedOption.classList.add('active');
-        }
-
-        // Store original order if not already stored
-        const tableBody = document.querySelector('.table-body');
-        if (tableBody && originalRowOrder.length === 0) {
-            originalRowOrder = Array.from(tableBody.children);
-        }
-
-        // Perform sort
-        currentSortMode = sortType;
-
-        if (sortType === 'reset') {
-            resetToOriginalOrder();
-        } else if (sortType === 'bs-high-low' || sortType === 'bs-low-high') {
-            sortRowsByBS(sortType);
-        } else if (sortType === 'hospital-timer') {
-            sortRowsByEnhancedHospitalTimer();
-        }
+    const selectedOption = sortPanel.querySelector(`[data-sort="${sortType}"]`);
+    if (selectedOption) {
+        selectedOption.classList.add('active');
     }
+
+    // Store original order if not already stored
+    const tableBody = document.querySelector('.table-body');
+    if (tableBody && originalRowOrder.length === 0) {
+        originalRowOrder = Array.from(tableBody.children);
+    }
+
+    // Perform sort
+    currentSortMode = sortType;
+
+    if (sortType === 'reset') {
+        resetToOriginalOrder();
+        // SAVE SORT MODE: reset = none
+        rD_setValue('ff_scouter_sort_mode', 'none');
+    } else if (sortType === 'bs-high-low' || sortType === 'bs-low-high') {
+        sortRowsByBS(sortType);
+        // SAVE SORT MODE
+        rD_setValue('ff_scouter_sort_mode', sortType);
+    } else if (sortType === 'hospital-timer') {
+        sortRowsByEnhancedHospitalTimer();
+        // SAVE SORT MODE
+        rD_setValue('ff_scouter_sort_mode', sortType);
+    } else if (sortType === 'traveling') {
+    sortRowsByTravelAbroad();
+    rD_setValue('ff_scouter_sort_mode', sortType);
+}
+}
 
     function resetToOriginalOrder() {
         const tableBody = document.querySelector('.table-body');
@@ -1342,6 +1378,70 @@ if (!singleton) {
         });
     }
 
+function sortRowsByTravelAbroad() {
+    const tableBody = document.querySelector('.table-body');
+    if (!tableBody) return;
+
+    const mainRows = Array.from(tableBody.querySelectorAll('.table-row[data-ff-scouter-extra]'));
+    const rowsWithData = [];
+
+    mainRows.forEach(mainRow => {
+        const extraRow = mainRow.nextElementSibling;
+        if (!extraRow || !extraRow.classList.contains('ff-scouter-extra-row')) return;
+
+        const profileLink = mainRow.querySelector('a[href*="profiles.php?XID="]');
+        if (!profileLink) return;
+
+        const match = profileLink.href.match(/XID=(\d+)/);
+        if (!match) return;
+
+        const playerId = match[1];
+        const ffResponse = get_fair_fight_response(playerId);
+
+        // Get BS value
+        let bsValue = 0;
+        if (ffResponse && ffResponse.bs_estimate) {
+            bsValue = ffResponse.bs_estimate;
+        }
+
+        // Get status from row
+        const status = getStatusFromRow(mainRow);
+
+        // Group priority: 1 = Traveling, 2 = Abroad, 3 = Others
+        let groupPriority;
+        if (status === 'Traveling') {
+            groupPriority = 1;
+        } else if (status === 'Abroad') {
+            groupPriority = 2;
+        } else {
+            groupPriority = 3;
+        }
+
+        rowsWithData.push({
+            mainRow: mainRow,
+            extraRow: extraRow,
+            bsValue: bsValue,
+            groupPriority: groupPriority,
+            playerId: playerId
+        });
+    });
+
+    // Sort: first by group priority, then by BS descending
+    rowsWithData.sort((a, b) => {
+        if (a.groupPriority !== b.groupPriority) {
+            return a.groupPriority - b.groupPriority; // lower number first
+        }
+        // Same group: higher BS first
+        return b.bsValue - a.bsValue;
+    });
+
+    // Reorder rows
+    rowsWithData.forEach(item => {
+        tableBody.appendChild(item.mainRow);
+        tableBody.appendChild(item.extraRow);
+    });
+}
+
     // New function to update faction profile member status using arrows for travel
 function updateFactionProfileMemberStatus(li, member, isFactionProfilePage) {
     if (!member || !member.status) return;
@@ -1362,29 +1462,27 @@ function updateFactionProfileMemberStatus(li, member, isFactionProfilePage) {
             break;
 
         case "Traveling": {
-            let description = member.status.description || '';
+    let description = member.status.description || '';
 
-            if (description.includes("Returning to Torn from ")) {
-                let location = description.replace("Returning to Torn from ", "");
-                let abbr = abbreviateCountry(location);
-                statusText = `← ${abbr}`;
+    if (description.includes("Returning to Torn from ")) {
+        let location = description.replace("Returning to Torn from ", "");
+        let abbr = abbreviateCountry(location);
+        statusText = `${tornSymbol} -- ${createPlaneSvg(true)}`;
+    } else if (description.includes("Traveling to ")) {
+        let location = description.replace("Traveling to ", "");
+        let abbr = abbreviateCountry(location);
+        statusText = `${createPlaneSvg(false)} -- ${abbr}`;
+    } else {
+        statusText = "Traveling";
+    }
 
-            } else if (description.includes("Traveling to ")) {
-                let location = description.replace("Traveling to ", "");
-                let abbr = abbreviateCountry(location);
-                statusText = `→ ${abbr}`;
+    statusClass = 'faction-status-traveling';
 
-            } else {
-                statusText = "Traveling";
-            }
-
-            statusClass = 'faction-status-traveling';
-
-            if (member.status.until) {
-                untilTime = parseInt(member.status.until, 10) * 1000;
-            }
-            break;
-        }
+    if (member.status.until) {
+        untilTime = parseInt(member.status.until, 10) * 1000;
+    }
+    break;
+}
 
         case "Abroad": {
             let abroadDesc = member.status.description || '';
@@ -1649,6 +1747,17 @@ function updateFactionProfileMemberStatus(li, member, isFactionProfilePage) {
                 // Update FF and attack button in extra rows
                 updateExtraInfoRowStats();
 
+            // ========== RE-APPLY CURRENT SORT (if any) TO KEEP ORDER CONSISTENT ==========
+if (currentSortMode !== 'none' && currentSortMode !== 'reset') {
+    console.log(`Re-applying sort mode: ${currentSortMode}`);
+    if (currentSortMode === 'bs-high-low' || currentSortMode === 'bs-low-high') {
+        sortRowsByBS(currentSortMode);
+    } else if (currentSortMode === 'hospital-timer') {
+        sortRowsByEnhancedHospitalTimer();
+    }
+}
+// ========== END RE-SORT ==========
+
                 // Fix any misaligned extra rows
                 setTimeout(fixExtraRowsAfterFilter, 100);
             })
@@ -1731,9 +1840,53 @@ function updateFactionProfileMemberStatus(li, member, isFactionProfilePage) {
 
                         // Also update FF and attack button immediately
                         updateExtraInfoRowStats();
+
+                        // === RESTORE SAVED SORT ===
+const savedSort = rD_getValue('ff_scouter_sort_mode', 'none');
+if (savedSort !== 'none') {
+    currentSortMode = savedSort;
+    // Highlight the active sort option in the panel
+    const sortPanel = document.getElementById('ff-scouter-sort-panel');
+    if (sortPanel) {
+        const option = sortPanel.querySelector(`[data-sort="${savedSort}"]`);
+        if (option) option.classList.add('active');
+    }
+    // Apply the sort
+    if (savedSort === 'bs-high-low' || savedSort === 'bs-low-high') {
+        sortRowsByBS(savedSort);
+    } else if (savedSort === 'hospital-timer') {
+        sortRowsByEnhancedHospitalTimer();
+    } else if (savedSort === 'traveling') {
+    sortRowsByTravelAbroad();
+}
+}
+// === END RESTORE ===
+
                     });
                 } else {
                     updateFactionProfileStatuses(factionID);
+
+                    // === RESTORE SAVED SORT ===
+const savedSort = rD_getValue('ff_scouter_sort_mode', 'none');
+if (savedSort !== 'none') {
+    currentSortMode = savedSort;
+    // Highlight the active sort option in the panel
+    const sortPanel = document.getElementById('ff-scouter-sort-panel');
+    if (sortPanel) {
+        const option = sortPanel.querySelector(`[data-sort="${savedSort}"]`);
+        if (option) option.classList.add('active');
+    }
+    // Apply the sort
+    if (savedSort === 'bs-high-low' || savedSort === 'bs-low-high') {
+        sortRowsByBS(savedSort);
+    } else if (savedSort === 'hospital-timer') {
+        sortRowsByEnhancedHospitalTimer();
+    } else if (savedSort === 'traveling') {
+    sortRowsByTravelAbroad();
+}
+}
+// === END RESTORE ===
+
                 }
 
                 // Set up observer to fix rows after filtering
@@ -1808,31 +1961,29 @@ function updateFactionProfileMemberStatus(li, member, isFactionProfilePage) {
                 delete statusEl.dataset.originalHtml;
             }
             statusEl.textContent = "Okay";
-        } else if (member.status.state === "Traveling") {
-            if (!statusEl.dataset.originalHtml) {
-                statusEl.dataset.originalHtml = statusEl.innerHTML;
-            }
+} else if (member.status.state === "Traveling") {
+    if (!statusEl.dataset.originalHtml) {
+        statusEl.dataset.originalHtml = statusEl.innerHTML;
+    }
 
-            let description = member.status.description || '';
-            let location = '';
-            let isReturning = false;
+    let description = member.status.description || '';
+    let location = '';
+    let isReturning = false;
 
-            if (description.includes("Returning to Torn from ")) {
-                location = description.replace("Returning to Torn from ", "");
-                isReturning = true;
-            } else if (description.includes("Traveling to ")) {
-                location = description.replace("Traveling to ", "");
-            }
+    if (description.includes("Returning to Torn from ")) {
+        location = description.replace("Returning to Torn from ", "");
+        isReturning = true;
+    } else if (description.includes("Traveling to ")) {
+        location = description.replace("Traveling to ", "");
+    }
 
-            let abbr = abbreviateCountry(location);
-            const planeSvg = `<svg class="plane-svg ${isReturning ? 'returning' : ''}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512">
-                <path d="M482.3 192c34.2 0 93.7 29 93.7 64c0 36-59.5 64-93.7 64l-116.6 0L265.2 495.9c-5.7 10-16.3 16.1-27.8 16.1l-56.2 0c-10.6 0-18.3-10.2-15.4-20.4l49-171.6L112 320 68.8 377.6c-3 4 0 6.4-12.8 6.4l-42 0c-7.8 0-14-6.3-14-14c0-1.3 .2-2.6 .5-3.9L32 256 .5 145.9c-.4-1.3-.5-2.6-.5-3.9c0-7.8 6.3-14 14-14l42 0c5 0 9.8 2.4 12.8 6.4L112 192l102.9 0-49-171.6C162.9 10.2 170.6 0 181.2 0l56.2 0c11.5 0 22.1 6.2 27.8 16.1L365.7 192l116.6 0z"/>
-            </svg>`;
-            const tornSymbol = `<svg class="torn-symbol" viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="11" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <text x="12" y="16" text-anchor="middle" font-family="Arial" font-weight="bold" font-size="14" fill="currentColor">T</text>
-            </svg>`;
-            statusEl.innerHTML = `<span class="travel-status">${tornSymbol}${planeSvg}<span class="country-abbr">${abbr}</span></span>`;
+    let abbr = abbreviateCountry(location);
+
+    if (isReturning) {
+        statusEl.innerHTML = `<span class="travel-status">${tornSymbol} -- ${createPlaneSvg(true)}</span>`;
+    } else {
+        statusEl.innerHTML = `<span class="travel-status">${createPlaneSvg(false)} -- ${abbr}</span>`;
+    }
         } else if (member.status.state === "Abroad") {
             if (!statusEl.dataset.originalHtml) {
                 statusEl.dataset.originalHtml = statusEl.innerHTML;
