@@ -226,7 +226,7 @@
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      fontSize: '16px',
+      fontSize: '20px',
       padding: '0',
       margin: '0',
       opacity: '0.8',
