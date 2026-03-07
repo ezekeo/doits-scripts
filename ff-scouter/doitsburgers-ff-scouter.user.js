@@ -18,7 +18,7 @@
 
 (function() {
     'use strict';
-    
+
     // Check if API key exists and prompt if not
     setTimeout(function() {
         var storedKey = GM_getValue("limited_key", null);
@@ -42,9 +42,41 @@
 })();
 
 // Icon definitions
-const tornSymbol = `<svg class="torn-symbol" viewBox="0 0 24 24">
-    <circle cx="12" cy="12" r="11" fill="none" stroke="currentColor" stroke-width="1.5"/>
-    <text x="12" y="16" text-anchor="middle" font-family="Arial" font-weight="bold" font-size="14" fill="currentColor">T</text>
+const tornSymbol = `
+<svg class="torn-symbol" viewBox="0 0 24 24">
+  <!-- Outer metallic ring -->
+  <circle cx="12" cy="12" r="11"
+          fill="url(#metalGradient)"
+          stroke="#000"
+          stroke-width="1.2"/>
+
+  <!-- Inner shadow ring -->
+  <circle cx="12" cy="12" r="9"
+          fill="none"
+          stroke="rgba(0,0,0,0.45)"
+          stroke-width="1.2"/>
+
+  <!-- Gloss highlight -->
+  <ellipse cx="12" cy="8" rx="7" ry="3"
+           fill="rgba(255,255,255,0.22)"/>
+
+  <!-- Black T -->
+  <text x="12" y="15.5"
+        text-anchor="middle"
+        font-family="Arial"
+        font-weight="900"
+        font-size="13"
+        fill="#000">T</text>
+
+  <!-- Metallic gradient -->
+  <defs>
+    <linearGradient id="metalGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#f2f2f2"/>
+      <stop offset="40%"  stop-color="#8c8c8c"/>
+      <stop offset="70%"  stop-color="#3a3a3a"/>
+      <stop offset="100%" stop-color="#bfbfbf"/>
+    </linearGradient>
+  </defs>
 </svg>`;
 
 function createPlaneSvg(isReturning) {
@@ -57,6 +89,11 @@ const FF_VERSION = 2.4;
 const API_INTERVAL = 30000;
 const memberCountdowns = {};
 let apiCallInProgressCount = 0;
+// Sort Panel functionality
+let currentSortMode = 'none'; // 'none', 'bs-high-low', 'bs-low-high', 'hospital-timer'
+let originalRowOrder = [];
+let showExtraRows = true; // default
+let warSortMode = 'none'; // Track current war page sort mode
 
 // ========== FF COLOR CONFIGURATION ==========
 // Easy to adjust FF colors - modify these values to change colors
@@ -69,6 +106,38 @@ const FF_COLORS = {
 };
 
 // ========== END COLOR CONFIGURATION ==========
+
+// === THEME DETECTION – makes extra rows match Torn's dark/light theme ===
+function updateThemeColors() {
+    // Get the computed background color of the body
+    const bodyBg = window.getComputedStyle(document.body).backgroundColor;
+    // Convert rgb to approximate brightness
+    const rgb = bodyBg.match(/\d+/g);
+    if (rgb && rgb.length >= 3) {
+        const brightness = (parseInt(rgb[0]) * 299 + parseInt(rgb[1]) * 587 + parseInt(rgb[2]) * 114) / 1000;
+        // Dark theme threshold (most dark themes have brightness < 128)
+        const isDark = brightness < 128;
+        const newBg = isDark ? '#2A2A2A' : '#EEEEEE'; // Dark: slightly lighter than row; Light: slightly darker than row
+        document.documentElement.style.setProperty('--extra-row-bg', newBg);
+        console.log(`FF Scouter: Theme detected as ${isDark ? 'dark' : 'light'}, extra row bg set to ${newBg}`);
+    } else {
+        // Fallback: keep the default #353535
+        document.documentElement.style.setProperty('--extra-row-bg', '#353535');
+    }
+}
+
+// Run it immediately after DOM is ready
+if (document.body) {
+    updateThemeColors();
+} else {
+    document.addEventListener('DOMContentLoaded', updateThemeColors);
+}
+
+// Optional: watch for theme changes (e.g., if Torn adds a class to body later)
+const themeObserver = new MutationObserver(() => {
+    updateThemeColors();
+});
+themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style'] });
 
 let singleton = document.getElementById('ff-scouter-run-once');
 if (!singleton) {
@@ -184,26 +253,32 @@ if (!singleton) {
     }
 
     /* Faction Profile Status Styles */
-    .table-cell.status {
-        min-width: 120px;
-        max-width: 200px;
-        resize: horizontal;
-        overflow: auto;
-    }
+.table-cell.status {
+    min-width: 110px;        /* <-- CHANGE THIS from 120px to 160px */
+    max-width: 200px;
+    resize: horizontal;
+    overflow: auto;
+}
 
+        /* Prevent the status icons and text from wrapping - KEEP CENTERED */
     .faction-profile-status {
         display: flex;
         align-items: center;
-        justify-content: center;
-        gap: 4px;
-        font-size: 12px;
         font-weight: bold;
+        justify-content: center;  /* This keeps text centered */
+        flex-wrap: nowrap !important;
         white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        gap: 4px;                 /* Keep your existing gap */
         width: 100%;
         min-height: 20px;
     }
+
+/* Ensure the last action row stays as a block inside the li */
+.last-action-row {
+    clear: both;
+    width: 100%;
+    box-sizing: border-box;
+}
 
     .faction-status-okay {
         color: #28a745;
@@ -237,14 +312,14 @@ if (!singleton) {
     }
 
     /* Extra info row for faction profile */
-    .ff-scouter-extra-row {
-        background-color: #353535;
-        border-bottom: 1px solid #000000;
-        padding: 2px 0;
-        font-size: 14px;
-        color: #6c757d;
-        display: none; /* Hidden by default, shown with data attribute */
-    }
+.ff-scouter-extra-row {
+    background-color: var(--extra-row-bg, #353535);
+    border-bottom: 1px solid #000000;
+    padding: 2px 0;
+    font-size: 14px;
+    color: #6c757d;
+    display: none; /* Hidden by default, shown with data attribute */
+}
 
     .table-row[data-ff-scouter-extra] + .ff-scouter-extra-row {
         display: block !important;
@@ -288,9 +363,9 @@ if (!singleton) {
     /* Sort Panel Styles */
     .ff-scouter-sort-panel {
         position: fixed;
-        bottom: 328px;
+        bottom: 141px;
         right: 2px;
-        z-index: 10000;
+        z-index: 100000;
         background: rgba(40, 40, 40, 0.95);
         border: 1px solid #555;
         border-radius: 8px;
@@ -322,7 +397,7 @@ if (!singleton) {
     justify-content: center;
     transition: all 0.3s ease;
     position: fixed;
-    bottom: 324px;
+    bottom: 133px;
     right: 2px;
     z-index: 10001;
     padding: 0;
@@ -358,6 +433,14 @@ if (!singleton) {
         background: #28a745;
         font-weight: bold;
     }
+
+    /* Hide extra rows when class is on body */
+body.ff-hide-extra .last-action-row,
+body.ff-hide-extra .ff-scouter-extra-row,
+body.ff-hide-extra .table-row[data-ff-scouter-extra] + .ff-scouter-extra-row {
+    display: none !important;
+}
+
     /* Make torn symbol a different color (e.g., gold) */
 .torn-symbol {
     fill: #FFD700 !important;
@@ -435,6 +518,7 @@ if (!singleton) {
 
     var key = rD_getValue("limited_key", null);
     var info_line = null;
+    showExtraRows = rD_getValue('ff_show_extra_rows', true) === true; // load saved preference
 
     rD_registerMenuCommand('Enter Limited API Key', () => {
         let userInput = prompt("Enter Limited API Key", rD_getValue('limited_key', ""));
@@ -1099,10 +1183,6 @@ if (!singleton) {
         return fetch(url).then(response => response.json());
     }
 
-    // Sort Panel functionality
-    let currentSortMode = 'none'; // 'none', 'bs-high-low', 'bs-low-high', 'hospital-timer'
-    let originalRowOrder = [];
-
     function createSortPanel() {
         if (document.getElementById('ff-scouter-sort-btn')) return;
 
@@ -1127,6 +1207,17 @@ if (!singleton) {
     { id: 'reset', text: 'Reset Order' }
 ];
 
+        // Restore active sort mode based on page
+const isWarPage = document.querySelector('.your-faction .members-list') !== null;
+const savedSort = isWarPage
+    ? rD_getValue('ff_scouter_sort_mode_war', 'none')
+    : rD_getValue('ff_scouter_sort_mode', 'none');
+
+if (savedSort !== 'none') {
+    const activeOption = sortPanel.querySelector(`[data-sort="${savedSort}"]`);
+    if (activeOption) activeOption.classList.add('active');
+}
+
         options.forEach(option => {
             const optionBtn = document.createElement('button');
             optionBtn.className = 'ff-scouter-sort-option';
@@ -1134,6 +1225,24 @@ if (!singleton) {
             optionBtn.textContent = option.text;
             sortPanel.appendChild(optionBtn);
         });
+
+        // Add a separator and the toggle button
+const separator = document.createElement('hr');
+separator.style.width = '100%';
+separator.style.margin = '5px 0';
+separator.style.border = 'none';
+separator.style.borderTop = '1px solid #555';
+sortPanel.appendChild(separator);
+
+const toggleBtn = document.createElement('button');
+toggleBtn.id = 'ff-toggle-extra-btn';
+toggleBtn.className = 'ff-scouter-sort-option';
+toggleBtn.textContent = showExtraRows ? 'Hide Extra Rows' : 'Show Extra Rows';
+toggleBtn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    setExtraRowsVisibility(!showExtraRows); // force reload
+});
+sortPanel.appendChild(toggleBtn);
 
         // Add event listeners
         sortBtn.addEventListener('click', function(e) {
@@ -1143,13 +1252,46 @@ if (!singleton) {
         });
 
         sortPanel.addEventListener('click', function(e) {
-            if (e.target.classList.contains('ff-scouter-sort-option')) {
-                const sortType = e.target.dataset.sort;
-                handleSortSelection(sortType);
-                sortPanel.classList.remove('visible');
-                sortBtn.classList.add('visible');
-            }
-        });
+    if (e.target.classList.contains('ff-scouter-sort-option') && e.target.dataset.sort) {
+        const sortType = e.target.dataset.sort;
+
+        // Determine if we're on a war page
+        const isWarPage = document.querySelector('.your-faction .members-list') !== null;
+
+        if (isWarPage) {
+            // War page sorting
+            sortWarLists(sortType);
+            warSortMode = sortType;
+            // Optionally save war sort preference
+            rD_setValue('ff_scouter_sort_mode_war', sortType);
+} else {
+    // Faction profile sorting
+    if (sortType === 'bs-high-low' || sortType === 'bs-low-high') {
+        sortRowsByBS(sortType);
+    } else if (sortType === 'hospital-timer') {
+        sortRowsByEnhancedHospitalTimer();
+    } else if (sortType === 'traveling') {
+        sortRowsByTravelAbroad();
+    } else if (sortType === 'reset') {
+        resetToOriginalOrder();
+    }
+
+    // **NEW: Update currentSortMode immediately**
+    if (sortType === 'reset') {
+        currentSortMode = 'none';
+    } else {
+        currentSortMode = sortType;
+    }
+    rD_setValue('ff_scouter_sort_mode', currentSortMode);
+}
+        // Update active state
+        sortPanel.querySelectorAll('.ff-scouter-sort-option').forEach(btn => btn.classList.remove('active'));
+        e.target.classList.add('active');
+
+        sortPanel.classList.remove('visible');
+        sortBtn.classList.add('visible');
+    }
+});
 
         // Close panel when clicking outside
         document.addEventListener('click', function(e) {
@@ -1164,46 +1306,6 @@ if (!singleton) {
         sortBtn.classList.add('visible');
     }
 
-    function handleSortSelection(sortType) {
-    const sortPanel = document.getElementById('ff-scouter-sort-panel');
-    if (!sortPanel) return;
-
-    // Update active state
-    const allOptions = sortPanel.querySelectorAll('.ff-scouter-sort-option');
-    allOptions.forEach(option => option.classList.remove('active'));
-
-    const selectedOption = sortPanel.querySelector(`[data-sort="${sortType}"]`);
-    if (selectedOption) {
-        selectedOption.classList.add('active');
-    }
-
-    // Store original order if not already stored
-    const tableBody = document.querySelector('.table-body');
-    if (tableBody && originalRowOrder.length === 0) {
-        originalRowOrder = Array.from(tableBody.children);
-    }
-
-    // Perform sort
-    currentSortMode = sortType;
-
-    if (sortType === 'reset') {
-        resetToOriginalOrder();
-        // SAVE SORT MODE: reset = none
-        rD_setValue('ff_scouter_sort_mode', 'none');
-    } else if (sortType === 'bs-high-low' || sortType === 'bs-low-high') {
-        sortRowsByBS(sortType);
-        // SAVE SORT MODE
-        rD_setValue('ff_scouter_sort_mode', sortType);
-    } else if (sortType === 'hospital-timer') {
-        sortRowsByEnhancedHospitalTimer();
-        // SAVE SORT MODE
-        rD_setValue('ff_scouter_sort_mode', sortType);
-    } else if (sortType === 'traveling') {
-    sortRowsByTravelAbroad();
-    rD_setValue('ff_scouter_sort_mode', sortType);
-}
-}
-
     function resetToOriginalOrder() {
         const tableBody = document.querySelector('.table-body');
         if (!tableBody || originalRowOrder.length === 0) return;
@@ -1212,6 +1314,20 @@ if (!singleton) {
             tableBody.appendChild(row);
         });
     }
+
+    function setExtraRowsVisibility(show, shouldReload = false) {
+    showExtraRows = show;
+    rD_setValue('ff_show_extra_rows', show);
+    if (show) {
+        document.body.classList.remove('ff-hide-extra');
+    } else {
+        document.body.classList.add('ff-hide-extra');
+    }
+    // Update button text if present
+    const btn = document.getElementById('ff-toggle-extra-btn');
+    if (btn) btn.textContent = show ? 'Hide Extra Rows' : 'Show Extra Rows';
+    if (shouldReload) window.location.reload();
+}
 
     function sortRowsByBS(sortType) {
         const tableBody = document.querySelector('.table-body');
@@ -1442,6 +1558,92 @@ function sortRowsByTravelAbroad() {
     });
 }
 
+    // ========== WAR PAGE SORTING FUNCTIONS ==========
+function sortWarList(listElement, sortType) {
+    if (!listElement) return;
+    const items = Array.from(listElement.children); // <li> elements
+    if (items.length === 0) return;
+
+    // Store original order for reset (only once)
+    if (!listElement.originalOrder) {
+        listElement.originalOrder = items.slice();
+    }
+
+    // Collect data for each item
+    const itemsWithData = items.map(li => {
+        const profileLink = li.querySelector('a[href*="profiles.php?XID="]');
+        if (!profileLink) return null;
+        const match = profileLink.href.match(/XID=(\d+)/);
+        if (!match) return null;
+        const playerId = match[1];
+
+        // Get cached BS value
+        const ffResponse = get_fair_fight_response(playerId);
+        const bsValue = ffResponse && ffResponse.bs_estimate ? ffResponse.bs_estimate : 0;
+
+        // Determine status from the status element (as set by updateMemberStatus)
+        let status = 'Unknown';
+        const statusEl = li.querySelector('.status');
+        if (statusEl) {
+            if (statusEl.classList.contains('faction-status-okay')) status = 'Okay';
+            else if (statusEl.classList.contains('faction-status-hospital')) status = 'Hospital';
+            else if (statusEl.classList.contains('faction-status-traveling')) status = 'Traveling';
+            else if (statusEl.classList.contains('faction-status-abroad')) status = 'Abroad';
+            else if (statusEl.classList.contains('faction-status-jail')) status = 'Jail';
+        }
+
+        // Get hospital timer if applicable
+        let hospitalTimer = Infinity;
+        if (status === 'Hospital' && memberCountdowns[playerId]) {
+            const remaining = memberCountdowns[playerId] - Date.now();
+            hospitalTimer = remaining > 0 ? remaining : 0;
+        }
+
+        return { li, playerId, bsValue, status, hospitalTimer };
+    }).filter(item => item !== null);
+
+    // Apply sorting based on sortType
+    let sortedItems;
+    if (sortType === 'bs-high-low') {
+        sortedItems = itemsWithData.sort((a, b) => b.bsValue - a.bsValue);
+    } else if (sortType === 'bs-low-high') {
+        sortedItems = itemsWithData.sort((a, b) => a.bsValue - b.bsValue);
+    } else if (sortType === 'hospital-timer') {
+        // Priority: Okay (1), Hospital (2), Traveling (3), Abroad (4), Jail (5), Unknown (6)
+        const priority = { 'Hospital':1, 'Okay':2, 'Traveling':3, 'Abroad':4, 'Jail':5, 'Unknown':6 };
+        sortedItems = itemsWithData.sort((a, b) => {
+            if (priority[a.status] !== priority[b.status]) return priority[a.status] - priority[b.status];
+            if (a.status === 'Hospital' && b.status === 'Hospital') {
+                if (a.hospitalTimer !== b.hospitalTimer) return a.hospitalTimer - b.hospitalTimer;
+                return a.bsValue - b.bsValue; // weaker first
+            }
+            if (a.status === 'Okay' && b.status === 'Okay') return b.bsValue - a.bsValue;
+            return b.bsValue - a.bsValue;
+        });
+    } else if (sortType === 'traveling') {
+        const priority = { 'Traveling':1, 'Abroad':2, 'Okay':3, 'Hospital':4, 'Jail':5, 'Unknown':6 };
+        sortedItems = itemsWithData.sort((a, b) => {
+            if (priority[a.status] !== priority[b.status]) return priority[a.status] - priority[b.status];
+            return b.bsValue - a.bsValue;
+        });
+    } else if (sortType === 'reset') {
+    // Restore original order
+    listElement.originalOrder.forEach(li => listElement.appendChild(li));
+    return;
+}
+
+    // Reorder DOM
+    sortedItems.forEach(item => listElement.appendChild(item.li));
+}
+
+function sortWarLists(sortType) {
+    const yourList = document.querySelector('.your-faction .members-list');
+    const enemyList = document.querySelector('.enemy-faction .members-list');
+    if (yourList) sortWarList(yourList, sortType);
+    if (enemyList) sortWarList(enemyList, sortType);
+}
+// ========== END WAR SORTING FUNCTIONS ==========
+
     // New function to update faction profile member status using arrows for travel
 function updateFactionProfileMemberStatus(li, member, isFactionProfilePage) {
     if (!member || !member.status) return;
@@ -1611,7 +1813,7 @@ function updateFactionProfileMemberStatus(li, member, isFactionProfilePage) {
             lastActionText = `Last action: ${member.last_action.relative}`;
         }
 
-        // Build content with attack emoji only (no title)
+        // Build content with attack emoji only (no title) – no health bar
         extraContent.innerHTML = `
             <div class="ff-scouter-last-action">${lastActionText}</div>
             <div class="ff-scouter-stats">
@@ -1637,7 +1839,7 @@ function updateFactionProfileMemberStatus(li, member, isFactionProfilePage) {
         // Note: FF and attack button are updated separately via the cache updates
     }
 
-    // Function to update FF and attack button in existing extra rows
+    // Function to update FF and attack button in existing extra rows – no health bar updates
     function updateExtraInfoRowStats() {
         if (!window.location.href.match(/factions\.php\?step=profile&ID=\d+/)) return;
 
@@ -1747,17 +1949,26 @@ function updateFactionProfileMemberStatus(li, member, isFactionProfilePage) {
                 // Update FF and attack button in extra rows
                 updateExtraInfoRowStats();
 
-            // ========== RE-APPLY CURRENT SORT (if any) TO KEEP ORDER CONSISTENT ==========
+            // ========== RE-APPLY CURRENT SORT ==========
 if (currentSortMode !== 'none' && currentSortMode !== 'reset') {
-    console.log(`Re-applying sort mode: ${currentSortMode}`);
-    if (currentSortMode === 'bs-high-low' || currentSortMode === 'bs-low-high') {
-        sortRowsByBS(currentSortMode);
-    } else if (currentSortMode === 'hospital-timer') {
-        sortRowsByEnhancedHospitalTimer();
-    }
+    console.log(`FF Scouter: Re-applying sort mode: ${currentSortMode}`);
+    setTimeout(() => {
+        if (currentSortMode === 'bs-high-low') {
+            console.log('FF Scouter: Sorting BS High to Low');
+            sortRowsByBS('bs-high-low');
+        } else if (currentSortMode === 'bs-low-high') {
+            console.log('FF Scouter: Sorting BS Low to High');
+            sortRowsByBS('bs-low-high');
+        } else if (currentSortMode === 'hospital-timer') {
+            console.log('FF Scouter: Sorting Hospital Timer');
+            sortRowsByEnhancedHospitalTimer();
+        } else if (currentSortMode === 'traveling') {
+            console.log('FF Scouter: Sorting Travel/Abroad');
+            sortRowsByTravelAbroad();
+        }
+    }, 200);
 }
 // ========== END RE-SORT ==========
-
                 // Fix any misaligned extra rows
                 setTimeout(fixExtraRowsAfterFilter, 100);
             })
@@ -1860,10 +2071,13 @@ if (savedSort !== 'none') {
     sortRowsByTravelAbroad();
 }
 }
-// === END RESTORE ===
+     // === END RESTORE ===
 
-                    });
-                } else {
+     // Apply extra rows visibility
+     setExtraRowsVisibility(showExtraRows);
+   });
+
+} else {
                     updateFactionProfileStatuses(factionID);
 
                     // === RESTORE SAVED SORT ===
@@ -1886,6 +2100,9 @@ if (savedSort !== 'none') {
 }
 }
 // === END RESTORE ===
+
+    // Apply extra rows visibility
+setExtraRowsVisibility(showExtraRows);
 
                 }
 
@@ -1931,78 +2148,94 @@ if (savedSort !== 'none') {
         }
     }
 
-    // Original war status functions
     function updateMemberStatus(li, member) {
-        if (!member || !member.status) return;
+    if (!member || !member.status) return;
 
-        let statusEl = li.querySelector('.status');
-        if (!statusEl) return;
+    let statusEl = li.querySelector('.status');
+    if (!statusEl) return;
 
-        let lastActionRow = li.querySelector('.last-action-row');
-        let lastActionText = member.last_action?.relative || '';
-        if (lastActionRow) {
-            lastActionRow.textContent = `Last Action: ${lastActionText}`;
-        } else {
-            lastActionRow = document.createElement('div');
-            lastActionRow.className = 'last-action-row';
-            lastActionRow.textContent = `Last Action: ${lastActionText}`;
-            let lastDiv = Array.from(li.children).reverse().find(el => el.tagName === 'DIV');
-            if (lastDiv?.nextSibling) {
-                li.insertBefore(lastActionRow, lastDiv.nextSibling);
-            } else {
-                li.appendChild(lastActionRow);
-            }
-        }
+    // Remove any existing status classes
+    statusEl.classList.remove(
+        'faction-status-okay',
+        'faction-status-hospital',
+        'faction-status-traveling',
+        'faction-status-abroad',
+        'faction-status-jail'
+    );
 
-        // Handle status changes
-        if (member.status.state === "Okay") {
-            if (statusEl.dataset.originalHtml) {
-                statusEl.innerHTML = statusEl.dataset.originalHtml;
-                delete statusEl.dataset.originalHtml;
-            }
-            statusEl.textContent = "Okay";
-} else if (member.status.state === "Traveling") {
-    if (!statusEl.dataset.originalHtml) {
-        statusEl.dataset.originalHtml = statusEl.innerHTML;
-    }
-
-    let description = member.status.description || '';
-    let location = '';
-    let isReturning = false;
-
-    if (description.includes("Returning to Torn from ")) {
-        location = description.replace("Returning to Torn from ", "");
-        isReturning = true;
-    } else if (description.includes("Traveling to ")) {
-        location = description.replace("Traveling to ", "");
-    }
-
-    let abbr = abbreviateCountry(location);
-
-    if (isReturning) {
-        statusEl.innerHTML = `<span class="travel-status">${tornSymbol} -- ${createPlaneSvg(true)}</span>`;
+    let lastActionRow = li.querySelector('.last-action-row');
+    let lastActionText = member.last_action?.relative || '';
+    if (lastActionRow) {
+        lastActionRow.textContent = `Last Action: ${lastActionText}`;
     } else {
-        statusEl.innerHTML = `<span class="travel-status">${createPlaneSvg(false)} -- ${abbr}</span>`;
+        lastActionRow = document.createElement('div');
+        lastActionRow.className = 'last-action-row';
+        lastActionRow.textContent = `Last Action: ${lastActionText}`;
+        let lastDiv = Array.from(li.children).reverse().find(el => el.tagName === 'DIV');
+        if (lastDiv?.nextSibling) {
+            li.insertBefore(lastActionRow, lastDiv.nextSibling);
+        } else {
+            li.appendChild(lastActionRow);
+        }
     }
-        } else if (member.status.state === "Abroad") {
-            if (!statusEl.dataset.originalHtml) {
-                statusEl.dataset.originalHtml = statusEl.innerHTML;
-            }
-            let description = member.status.description || '';
-            if (description.startsWith("In ")) {
-                let location = description.replace("In ", "");
-                let abbr = abbreviateCountry(location);
-                statusEl.textContent = `in ${abbr}`;
-            }
+
+    // Handle status changes and add appropriate class
+    if (member.status.state === "Okay") {
+        statusEl.classList.add('faction-status-okay');
+        if (statusEl.dataset.originalHtml) {
+            statusEl.innerHTML = statusEl.dataset.originalHtml;
+            delete statusEl.dataset.originalHtml;
+        }
+        statusEl.textContent = "Okay";
+    } else if (member.status.state === "Traveling") {
+        statusEl.classList.add('faction-status-traveling');
+        if (!statusEl.dataset.originalHtml) {
+            statusEl.dataset.originalHtml = statusEl.innerHTML;
         }
 
-        // Update countdown
-        if (member.status.until && parseInt(member.status.until, 10) > 0) {
-            memberCountdowns[member.id] = parseInt(member.status.until, 10) * 1000;
-        } else {
-            delete memberCountdowns[member.id];
+        let description = member.status.description || '';
+        let location = '';
+        let isReturning = false;
+
+        if (description.includes("Returning to Torn from ")) {
+            location = description.replace("Returning to Torn from ", "");
+            isReturning = true;
+        } else if (description.includes("Traveling to ")) {
+            location = description.replace("Traveling to ", "");
         }
+
+        let abbr = abbreviateCountry(location);
+
+        if (isReturning) {
+            statusEl.innerHTML = `<span class="travel-status">${tornSymbol} ${createPlaneSvg(true)}</span>`;
+        } else {
+            statusEl.innerHTML = `<span class="travel-status">${createPlaneSvg(false)} ${abbr}</span>`;
+        }
+    } else if (member.status.state === "Abroad") {
+        statusEl.classList.add('faction-status-abroad');
+        if (!statusEl.dataset.originalHtml) {
+            statusEl.dataset.originalHtml = statusEl.innerHTML;
+        }
+        let description = member.status.description || '';
+        if (description.startsWith("In ")) {
+            let location = description.replace("In ", "");
+            let abbr = abbreviateCountry(location);
+            statusEl.textContent = `🌏 ${abbr}`;
+        }
+    } else if (member.status.state === "Hospital") {
+        statusEl.classList.add('faction-status-hospital');
+        // The countdown will be set by the timer update
+    } else if (member.status.state === "Jail") {
+        statusEl.classList.add('faction-status-jail');
     }
+
+    // Update countdown for timed states
+    if (member.status.until && parseInt(member.status.until, 10) > 0) {
+        memberCountdowns[member.id] = parseInt(member.status.until, 10) * 1000;
+    } else {
+        delete memberCountdowns[member.id];
+    }
+}
 
     function updateFactionStatuses(factionID, container) {
         apiCallInProgressCount++;
@@ -2026,6 +2259,15 @@ if (savedSort !== 'none') {
                     let userID = match[1];
                     updateMemberStatus(li, memberMap[userID]);
                 });
+
+            // After updating statuses, re-apply the current war sort mode if any
+if (warSortMode !== 'none' && warSortMode !== 'reset') {
+    console.log(`FF Scouter: Re-applying war sort mode: ${warSortMode}`);
+    setTimeout(() => {
+        sortWarLists(warSortMode);
+    }, 300);
+}
+
             })
             .catch(err => {
                 console.error("Error fetching faction data for faction", factionID, err);
@@ -2071,26 +2313,64 @@ if (savedSort !== 'none') {
     }
 
     function initWarScript() {
-        let enemyFactionLink = document.querySelector(".opponentFactionName___vhESM");
-        let yourFactionLink = document.querySelector(".currentFactionName___eq7n8");
-        if (!enemyFactionLink || !yourFactionLink) return false;
-
-        let enemyList = document.querySelector(".enemy-faction .members-list");
-        let yourList = document.querySelector(".your-faction .members-list");
-        if (!enemyList || !yourList) return false;
-
-        updateAPICalls();
-        setInterval(updateAPICalls, API_INTERVAL);
-        console.log("Torn Faction Status Countdown (Real-Time & API Status - Relative Last): Initialized");
-        return true;
+    // Look for the member lists – these exist on all war pages (including the ranked war tab)
+    let enemyList = document.querySelector(".enemy-faction .members-list");
+    let yourList = document.querySelector(".your-faction .members-list");
+    if (!enemyList || !yourList) {
+        console.log("FF Scouter: War member lists not found");
+        return false;
     }
 
-    let warObserver = new MutationObserver((mutations, obs) => {
+    // Store original order for reset
+    if (enemyList) enemyList.originalOrder = Array.from(enemyList.children);
+    if (yourList) yourList.originalOrder = Array.from(yourList.children);
+
+    // Load saved war sort mode
+    const savedWarSort = rD_getValue('ff_scouter_sort_mode_war', 'none');
+    if (savedWarSort !== 'none') {
+        warSortMode = savedWarSort;
+        setTimeout(() => {
+            sortWarLists(savedWarSort);
+            const sortPanel = document.getElementById('ff-scouter-sort-panel');
+            if (sortPanel) {
+                const option = sortPanel.querySelector(`[data-sort="${savedWarSort}"]`);
+                if (option) option.classList.add('active');
+            }
+        }, 500);
+    }
+
+    // Start periodic API updates (for statuses and timers)
+    updateAPICalls();
+    setInterval(updateAPICalls, API_INTERVAL);
+
+    console.log("FF Scouter: War page initialized successfully!");
+    return true;
+}
+
+    // Observer for ranked war page (factions.php?step=your&type=1#/war/rank)
+const rankedWarObserver = new MutationObserver((mutations, obs) => {
+    // Check if we're on the ranked war page
+    if (window.location.href.includes("factions.php?step=your&type=1") &&
+        window.location.hash.includes("/war/rank")) {
+
+        // Try to initialize the war script
         if (initWarScript()) {
-            obs.disconnect();
+            console.log("FF Scouter: Ranked war page initialized");
+            obs.disconnect(); // Stop observing once it's working
         }
-    });
-    warObserver.observe(document.body, { childList: true, subtree: true });
+    }
+});
+
+// Start observing
+rankedWarObserver.observe(document.body, { childList: true, subtree: true });
+
+// Keep the original war observer for other war pages
+let warObserver = new MutationObserver((mutations, obs) => {
+    if (initWarScript()) {
+        obs.disconnect();
+    }
+});
+warObserver.observe(document.body, { childList: true, subtree: true });
 
     setInterval(updateAllMemberTimers, 1000);
 
@@ -2171,4 +2451,96 @@ if (savedSort !== 'none') {
 
         daysObserver.observe(document.body, { childList: true, subtree: true });
     }
+
+    // ===== RANKED WAR PAGE INITIALIZER =====
+if (window.location.href.includes("factions.php?step=your&type=1") && window.location.hash.includes("/war/rank")) {
+    console.log("FF Scouter: Ranked war page detected. Attempting to initialize...");
+
+    function tryInitWarScript() {
+        if (initWarScript()) {
+            console.log("FF Scouter: Ranked war page initialized successfully!");
+            return true;
+        }
+        return false;
+    }
+
+    // Try immediately after a short delay
+    setTimeout(() => {
+        if (!tryInitWarScript()) {
+            // If it fails, retry every second for up to 15 seconds
+            let attempts = 0;
+            const interval = setInterval(() => {
+                attempts++;
+                if (tryInitWarScript()) {
+                    clearInterval(interval);
+                } else if (attempts >= 15) {
+                    clearInterval(interval);
+                    console.log("FF Scouter: Could not initialize ranked war page after 15 attempts.");
+                }
+            }, 1000);
+        }
+    }, 1500); // Wait 1.5 seconds for the page to load
+}
+
+// ===== FORCE SORT PANEL ON RANKED WAR PAGE =====
+if (window.location.href.includes("factions.php?step=your&type=1") && window.location.hash.includes("/war/rank")) {
+    console.log("FF Scouter: Forcing sort panel on ranked war page");
+
+    function tryInitRankedWar() {
+        const enemyList = document.querySelector(".enemy-faction .members-list");
+        const yourList = document.querySelector(".your-faction .members-list");
+        if (!enemyList || !yourList) {
+            console.log("FF Scouter: War lists not ready yet");
+            return false;
+        }
+
+        // Create sort panel if it doesn't exist
+        if (!document.getElementById('ff-scouter-sort-btn')) {
+            createSortPanel();
+            console.log("FF Scouter: Sort panel created");
+        }
+
+        // Store original order for reset
+        if (!enemyList.originalOrder) enemyList.originalOrder = Array.from(enemyList.children);
+        if (!yourList.originalOrder) yourList.originalOrder = Array.from(yourList.children);
+
+        // ===== NEW: Load saved war sort mode =====
+        const savedWarSort = rD_getValue('ff_scouter_sort_mode_war', 'none');
+        if (savedWarSort !== 'none') {
+            warSortMode = savedWarSort;
+            setTimeout(() => {
+                sortWarLists(savedWarSort);
+                const sortPanel = document.getElementById('ff-scouter-sort-panel');
+                if (sortPanel) {
+                    const option = sortPanel.querySelector(`[data-sort="${savedWarSort}"]`);
+                    if (option) option.classList.add('active');
+                }
+            }, 500);
+        }
+        // ===== END NEW =====
+
+        // Start periodic API updates if not already running
+        if (typeof warUpdateInterval === 'undefined') {
+            updateAPICalls();
+            window.warUpdateInterval = setInterval(updateAPICalls, API_INTERVAL);
+        }
+
+        return true;
+    }
+
+    setTimeout(() => {
+        if (!tryInitRankedWar()) {
+            let attempts = 0;
+            const interval = setInterval(() => {
+                attempts++;
+                if (tryInitRankedWar()) {
+                    clearInterval(interval);
+                } else if (attempts >= 15) {
+                    clearInterval(interval);
+                    console.log("FF Scouter: Could not create sort panel after 15 attempts.");
+                }
+            }, 1000);
+        }
+    }, 1500);
+}
 }
