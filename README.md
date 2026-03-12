@@ -84,6 +84,46 @@ This step is required for the script to function correctly.
 
 ---
 
+### Doitsburger's FF Target Finder + Attack Overlay
+
+A Tampermonkey userscript that helps you quickly find fair fight (FF) targets using data from [FFScouter](https://ffscouter.com) and adds a prominent **START FIGHT** overlay on attack pages for easier engagement.
+
+## Features
+- **Quick target lookup** – Fetches a random target matching your Fair Fight range, inactivity, and faction filters.
+- **Tap/hold interaction** – On mobile: tap the floating target icon to find a target, hold to open settings.
+- **Desktop keyboard shortcuts** – `F1` find target, `F2` open settings, `F3` set API key.
+- **START FIGHT overlay** – On attack pages, a pulsing overlay appears above the fight button; click it to start the fight.
+- **Configurable filters** – Set min/max FF, filter by inactive players (14+ days), factionless only, and choose whether to open targets in a new tab.
+- **Status verification** – Optionally verify that a target is in "Okay" state before attacking (slower but more accurate).
+- **Flexible API key** – Use your own FFScouter API key or rely on the automatic key provided by Torn PDA.
+
+## Installation
+1. Install a userscript manager like [Tampermonkey](https://www.tampermonkey.net/) or Violentmonkey.
+2. Create a new script and paste the entire code from this repository.
+3. Save the script – it will automatically run on Torn pages.
+
+## Usage
+- **Floating button** – Appears on all Torn pages (customizable position).  
+  - Tap (or click) to find a target.  
+  - Hold (or right‑click) to open settings.  
+- **Keyboard** (desktop only):  
+  - `F1` – Find target  
+  - `F2` – Open settings  
+  - `F3` – Enter/edit API key  
+- **Attack overlay** – When you land on a fight page (`loader.php?sid=attack`), a full‑width pulsing "START FIGHT" overlay appears. Click it to trigger the actual attack button.
+
+## Configuration
+- **API Key** – You can get a free API key from [FFScouter](https://ffscouter.com) (register your Torn API key there). If you use Torn PDA, the script will automatically use its built‑in key.
+- **Target settings** – Adjust the Fair Fight range (1.00–3.00) and enable filters for inactive or factionless players.
+- **Behavior** – Choose whether to open attacks in a new tab, and enable status verification.
+- **Button position** – In settings, click "Move Button" to drag the floating button anywhere on the screen.
+
+## Credits
+This script is a tweak/modification of the original work by **FFScouter** and **Torn Mobile**.  
+**Doitsburger** is only a tweaker – all core functionality and credit belong to the original authors.
+
+---
+
 ### ✈️ One Click Travel
 
 Adds one-click travel shortcuts to make travelling between locations faster and more convenient.
