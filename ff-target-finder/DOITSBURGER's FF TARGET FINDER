@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Doitsburger’s FF Target Finder + Attack Overlay
+// @name         Doitsburger’s FF Target Finder + Start Attack Overlay
 // @namespace    http://tampermonkey.net/
 // @version      3.7
 // @description  Quick target finder + START FIGHT overlay (toggleable) for attack pages
