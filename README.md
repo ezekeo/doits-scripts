@@ -84,29 +84,39 @@ This step is required for the script to function correctly.
 
 ---
 
-### Doitsburger’s FF Target Finder + Attack Overlay
+### 🎯 Doitsburger’s FF Target Finder + Attack Overlay
 
-A Tampermonkey userscript for Torn that helps you quickly find fair fight (FF) targets using [FFScouter](https://ffscouter.com) and adds a prominent **START FIGHT** overlay on attack pages for easier engagement.
+Quick target finder + START FIGHT overlay for attack pages. Fetches random targets from FFScouter based on your Fair Fight (FF) range, inactivity, and faction filters. Adds a pulsing **START FIGHT** overlay on attack pages for easier engagement.
 
-## Features
-- **Quick target lookup** – Fetches a random target matching your Fair Fight range, inactivity, and faction filters.
-- **Tap/hold interaction** – On mobile, tap the floating target icon to find a target, hold to open settings.
-- **Desktop keyboard shortcuts** – `F1` find target, `F2` open settings, `F3` set API key.
-- **START FIGHT overlay** – On attack pages, a pulsing overlay appears above the fight button; click it to start the fight.
-- **Configurable filters** – Set min/max FF, filter by inactive players (14+ days), factionless only, and choose whether to open targets in a new tab.
-- **Status verification** – Optionally verify that a target is in "Okay" state before attacking (slower but more accurate).
-- **Flexible API key** – Use your own FFScouter API key or rely on the automatic key provided by Torn PDA.
+### 🔑 API Requirement (Important)
 
-## 🔑 API Requirement (Important)
-Before using this script, you must:
+Before using this script, you **must**:
 
-1. Obtain an API key from [FFScouter](https://ffscouter.com) (register your Torn API key there).
-2. When prompted by the userscript (or via F3), enter this API key.
+1. Register a **Torn Limited API key** at  
+   **https://ffscouter.com**
+2. Use the **same API key** when prompted by the userscript
 
-*If you use Torn PDA, the script will automatically use its built‑in key – you can skip the manual entry.*
+**Install (Browser / Torn PDA):**  
+https://raw.githubusercontent.com/doitsburger/doits-scripts/refs/heads/main/ff-target-finder/DOITSBURGER's%20FF%20TARGET%20FINDER
 
-## 📦 Install
-Copy the script code from the link below and create a new userscript in Tampermonkey/Violentmonkey, or use the **"Install from URL"** feature:
+👉 After installing the userscript, you will be prompted to enter this API key **the first time you use the script**.  
+This step is required for the script to function correctly.
+
+---
+
+### 👥 Attribution & Credits
+
+> **Attribution:**  
+> This script is **not solely original work**.  
+>  
+> It is based on and inspired by the original **FF Scouter** userscripts created by members of the Torn community.  
+>  
+> **Original authors:**  
+> `FFScouter`, `Torn Mobile`  
+>  
+> This version includes modifications, maintenance, and enhancements by **doitsburger**.  
+>  
+> Full credit and respect to the original authors.
 
 ---
 
