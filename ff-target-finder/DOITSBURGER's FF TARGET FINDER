@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Doitsburger’s FF Target Finder + Attack Overlay
 // @namespace    http://tampermonkey.net/
-// @version      3.6
-// @description  Quick target finder + START FIGHT overlay for attack pages
+// @version      3.7
+// @description  Quick target finder + START FIGHT overlay (toggleable) for attack pages
 // @author       FFScouter
 // @match        https://www.torn.com/*
 // @grant        GM_xmlhttpRequest
@@ -28,7 +28,7 @@
     // Detect mobile/touch device
     const isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 
-    // Default configuration (with new default positions)
+    // Default configuration (with new default positions and overlay enabled)
     const defaultConfig = {
         apiKey: '',
         target: {
@@ -42,9 +42,10 @@
         hasUsedTap: false,
         hasUsedHold: false,
         buttonPosition: isMobile
-            ? { right: 2, top: 218, isPercent: false }  // mobile: 2px from right, 218px from bottom
-            : { right: 0, top: 27, isPercent: true },   // desktop: 0% from right, 27% from top
-        buttonVisible: true
+        ? { right: 2, top: 218, isPercent: false }  // mobile: 2px from right, 218px from bottom
+        : { right: 0, top: 27, isPercent: true },   // desktop: 0% from right, 27% from top
+        buttonVisible: true,
+        fightOverlayEnabled: true                         // <-- NEW: toggle for START FIGHT overlay
     };
 
     // Load or initialize configuration (migrate old format)
@@ -68,7 +69,8 @@
                         hasUsedTap: config.hasUsedTap ?? false,
                         hasUsedHold: config.hasUsedHold ?? false,
                         buttonPosition: config.buttonPosition || defaultConfig.buttonPosition,
-                        buttonVisible: config.buttonVisible ?? true
+                        buttonVisible: config.buttonVisible ?? true,
+                        fightOverlayEnabled: config.fightOverlayEnabled ?? true   // migrate with default true
                     };
                     saveConfig(newConfig);
                     return newConfig;
@@ -76,6 +78,10 @@
                 // Ensure target property exists
                 if (!config.target) {
                     config.target = { minFF: 1.50, maxFF: 3.00 };
+                }
+                // Ensure fightOverlayEnabled exists (for older configs)
+                if (config.fightOverlayEnabled === undefined) {
+                    config.fightOverlayEnabled = true;
                 }
                 return config;
             } catch (e) {
@@ -852,10 +858,6 @@
             background: rgba(15,15,18,0.95);
         }
 
-        .ffs-fab-container.repositioning .ffs-fab:hover {
-            transform: none;
-        }
-
         @keyframes ffs-pulse {
             0%, 100% { box-shadow: 0 0 0 0 rgba(102, 170, 255, 0.5), 0 4px 15px rgba(0, 0, 0, 0.4); }
             50% { box-shadow: 0 0 0 10px rgba(102, 170, 255, 0), 0 4px 15px rgba(0, 0, 0, 0.4); }
@@ -1361,7 +1363,7 @@
             const config = getConfig();
             config.buttonPosition = isMobile
                 ? { right: 2, top: 218, isPercent: false }
-                : { right: 0, top: 27, isPercent: true };
+            : { right: 0, top: 27, isPercent: true };
             saveConfig(config);
             applyButtonPosition();
             cleanup();
@@ -1463,7 +1465,7 @@
         });
     }
 
-    // Configuration popup (simplified)
+    // Configuration popup (simplified) – with new overlay toggle
     function showConfigPopup() {
         const existing = document.querySelector('.ffs-overlay');
         if (existing) existing.remove();
@@ -1562,6 +1564,16 @@
                             <div class="ffs-option-text">
                                 <div class="ffs-option-title">Open in New Tab</div>
                                 <div class="ffs-option-desc">Open attack page in a new browser tab</div>
+                            </div>
+                        </label>
+                        <label class="ffs-option">
+                            <div class="ffs-toggle">
+                                <input type="checkbox" id="ffs-overlay-toggle" ${config.fightOverlayEnabled ? 'checked' : ''}>
+                                <span class="ffs-toggle-slider"></span>
+                            </div>
+                            <div class="ffs-option-text">
+                                <div class="ffs-option-title">Start Fight Overlay</div>
+                                <div class="ffs-option-desc">Show START FIGHT overlay on attack pages</div>
                             </div>
                         </label>
                         <div class="ffs-option" id="ffs-move-btn" style="cursor: pointer;">
@@ -1698,6 +1710,7 @@
                 factionlessOnly: document.getElementById('ffs-factionless').checked,
                 verifyStatus: document.getElementById('ffs-verify').checked,
                 openInNewTab: document.getElementById('ffs-newtab').checked,
+                fightOverlayEnabled: document.getElementById('ffs-overlay-toggle').checked, // <-- NEW
                 hasUsedTap: currentConfig.hasUsedTap,
                 hasUsedHold: currentConfig.hasUsedHold,
                 buttonPosition: currentConfig.buttonPosition,
@@ -1711,6 +1724,13 @@
 
             saveConfig(newConfig);
             showToast('Settings saved!', 'success');
+            // Immediately remove overlay if disabled on attack page
+            if (window.location.pathname.includes('/loader.php') && window.location.search.includes('sid=attack')) {
+                const overlayEl = document.getElementById('tornFightOverlay');
+                if (overlayEl && !newConfig.fightOverlayEnabled) {
+                    overlayEl.remove();
+                }
+            }
             closePopup();
         });
 
@@ -1884,25 +1904,23 @@
         }
     });
 
-    // ==================== START FIGHT OVERLAY ====================
-    // Only activate on attack pages
+    // ==================== START FIGHT OVERLAY (now toggleable) ====================
     function initFightOverlay() {
         if (!window.location.pathname.includes('/loader.php') || !window.location.search.includes('sid=attack')) {
             return; // Not an attack page
         }
 
-        // Copy of the overlay script, self-contained
-        (function(){
-            let overlay = null;
-            let attackButton = null;
-            let alertPlayed = false;
-            const ALERT_SOUND = "https://actions.google.com/sounds/v1/alarms/beep_short.ogg";
+        // We'll define functions that can access the outer config
+        let overlay = null;
+        let attackButton = null;
+        let alertPlayed = false;
+        const ALERT_SOUND = "https://actions.google.com/sounds/v1/alarms/beep_short.ogg";
 
-            function injectStyle() {
-                if (document.getElementById("tornOverlayStyle")) return;
-                const style = document.createElement("style");
-                style.id = "tornOverlayStyle";
-                style.innerHTML = `
+        function injectStyle() {
+            if (document.getElementById("tornOverlayStyle")) return;
+            const style = document.createElement("style");
+            style.id = "tornOverlayStyle";
+            style.innerHTML = `
 @keyframes tornPulse{
 0% { transform:scale(1); background:#b00000; }
 50% { transform:scale(1.05); background:#ff0000; }
@@ -1915,95 +1933,103 @@ font-size:8vw; font-weight:900; color:white; z-index:999999;
 animation:tornPulse 1s infinite; box-shadow:0 0 30px rgba(0,0,0,0.8);
 user-select:none; cursor:pointer;
 }`;
-                document.head.appendChild(style);
-            }
+            document.head.appendChild(style);
+        }
 
-            function triggerAlert() {
-                if (alertPlayed) return;
-                alertPlayed = true;
-                if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-                const audio = new Audio(ALERT_SOUND);
-                audio.volume = 0.7;
-                audio.play().catch(() => {});
-            }
+        function triggerAlert() {
+            if (alertPlayed) return;
+            alertPlayed = true;
+            if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+            const audio = new Audio(ALERT_SOUND);
+            audio.volume = 0.7;
+            audio.play().catch(() => {});
+        }
 
-            function createOverlay() {
-                if (overlay) return;
-                overlay = document.createElement("div");
-                overlay.id = "tornFightOverlay";
-                overlay.innerText = "START FIGHT";
-                overlay.onclick = () => {
-                    if (attackButton) {
-                        attackButton.click();
-                        removeOverlay();
-                    }
-                };
-                document.body.appendChild(overlay);
-                triggerAlert();
-            }
-
-            function removeOverlay() {
-                if (!overlay) return;
-                overlay.remove();
-                overlay = null;
-                alertPlayed = false;
-            }
-
-            function isVisible(el) {
-                return el && el.offsetParent !== null && !el.disabled;
-            }
-
-            function findAttackButton() {
-                const selectors = [
-                    "button.torn-btn.btn___RxE8_.silver",
-                    "button[class*='attack']",
-                    "button[class*='fight']",
-                    "a[class*='attack']",
-                    "input[value*='Fight']"
-                ];
-                for (const sel of selectors) {
-                    const btn = document.querySelector(sel);
-                    if (btn && isVisible(btn) && btn.innerText.toLowerCase().includes("start fight")) return btn;
-                }
-                const elements = document.querySelectorAll("button,a,input");
-                for (let el of elements) {
-                    if (!isVisible(el)) continue;
-                    const txt = (el.innerText || el.value || el.getAttribute("aria-label") || "").toLowerCase();
-                    if (txt.includes("start fight") || txt.includes("attack") || txt.includes("engage")) return el;
-                }
-                return null;
-            }
-
-            function detectionLoop() {
-                const btn = findAttackButton();
-                if (btn && !overlay) {
-                    attackButton = btn;
-                    createOverlay();
-                }
-                if (!btn && overlay) {
+        function createOverlay() {
+            if (overlay) return;
+            overlay = document.createElement("div");
+            overlay.id = "tornFightOverlay";
+            overlay.innerText = "START FIGHT";
+            overlay.onclick = () => {
+                if (attackButton) {
+                    attackButton.click();
                     removeOverlay();
-                    attackButton = null;
                 }
+            };
+            document.body.appendChild(overlay);
+            triggerAlert();
+        }
+
+        function removeOverlay() {
+            if (!overlay) return;
+            overlay.remove();
+            overlay = null;
+            alertPlayed = false;
+        }
+
+        function isVisible(el) {
+            return el && el.offsetParent !== null && !el.disabled;
+        }
+
+        function findAttackButton() {
+            const selectors = [
+                "button.torn-btn.btn___RxE8_.silver",
+                "button[class*='attack']",
+                "button[class*='fight']",
+                "a[class*='attack']",
+                "input[value*='Fight']"
+            ];
+            for (const sel of selectors) {
+                const btn = document.querySelector(sel);
+                if (btn && isVisible(btn) && btn.innerText.toLowerCase().includes("start fight")) return btn;
+            }
+            const elements = document.querySelectorAll("button,a,input");
+            for (let el of elements) {
+                if (!isVisible(el)) continue;
+                const txt = (el.innerText || el.value || el.getAttribute("aria-label") || "").toLowerCase();
+                if (txt.includes("start fight") || txt.includes("attack") || txt.includes("engage")) return el;
+            }
+            return null;
+        }
+
+        function detectionLoop() {
+            // Check config before showing overlay
+            const config = getConfig();
+            if (!config.fightOverlayEnabled) {
+                // If overlay is disabled, ensure it's removed and stop
+                if (overlay) removeOverlay();
+                attackButton = null;
+                return;
             }
 
-            function setupObserver() {
-                const observer = new MutationObserver(detectionLoop);
-                observer.observe(document.body, { childList: true, subtree: true });
+            const btn = findAttackButton();
+            if (btn && !overlay) {
+                attackButton = btn;
+                createOverlay();
             }
-
-            function init() {
-                injectStyle();
-                const waitBody = setInterval(() => {
-                    if (document.body) {
-                        clearInterval(waitBody);
-                        setupObserver();
-                        setInterval(detectionLoop, 80);
-                    }
-                }, 50);
+            if (!btn && overlay) {
+                removeOverlay();
+                attackButton = null;
             }
+        }
 
-            init();
-        })();
+        function setupObserver() {
+            const observer = new MutationObserver(detectionLoop);
+            observer.observe(document.body, { childList: true, subtree: true });
+        }
+
+        function init() {
+            injectStyle();
+            const waitBody = setInterval(() => {
+                if (document.body) {
+                    clearInterval(waitBody);
+                    setupObserver();
+                    setInterval(detectionLoop, 80);
+                }
+            }, 50);
+        }
+
+        init();
     }
 
     // ==================== INITIALIZATION ====================
