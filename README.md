@@ -92,9 +92,11 @@ Quick target finder + START FIGHT overlay for attack pages. Fetches random targe
 
 Before using this script, you **must**:
 
-1. Register a **Torn Limited API key** at  
+1. If you are already using the FF Scouter you can use the same API KEY
+OR
+3. Register a **Torn Limited API key** at  
    **https://ffscouter.com**
-2. Use the **same API key** when prompted by the userscript
+4. Use the **same API key** when prompted by the userscript
 
 **Install (Browser / Torn PDA):**  
 https://raw.githubusercontent.com/doitsburger/doits-scripts/refs/heads/main/ff-target-finder/DOITSBURGER's%20FF%20TARGET%20FINDER
