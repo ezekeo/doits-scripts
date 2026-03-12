@@ -50,7 +50,7 @@ Updates are handled automatically.
 
 ### 🛰️ Doitsburger’s FF Scouter
 
-Scouts and displays Fight Finder (FF) information in a quick, readable format to assist with decision-making during fights.
+Scouts and displays Fair Fight (FF) information in a quick, readable format to assist with decision-making during fights.
 
 ### 🔑 API Requirement (Important)
 
