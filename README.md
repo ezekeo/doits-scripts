@@ -112,7 +112,7 @@ This step is required for the script to function correctly.
 > It is based on and inspired by the original **FF Scouter** userscripts created by members of the Torn community.  
 >  
 > **Original authors:**  
-> `FFScouter`, `Torn Mobile`  
+> `FFScouter` 
 >  
 > This version includes modifications, maintenance, and enhancements by **doitsburger**.  
 >  
