@@ -836,14 +836,14 @@
 
         function getInfoMountTarget() {
             const attackingHeader = Array.from(document.querySelectorAll('h4'))
-                .find(h => h.textContent && h.textContent.trim().toLowerCase() === 'attacking');
+            .find(h => h.textContent && h.textContent.trim().toLowerCase() === 'attacking');
 
             if (attackingHeader && attackingHeader.parentNode && attackingHeader.parentNode.parentNode) {
                 return { type: 'after-parent', el: attackingHeader.parentNode.parentNode };
             }
 
             const firstVisibleH4 = Array.from(document.querySelectorAll('h4'))
-                .find(h => h.textContent && h.offsetParent !== null);
+            .find(h => h.textContent && h.offsetParent !== null);
 
             if (firstVisibleH4) {
                 const linksTopWrap = firstVisibleH4.parentNode?.querySelector('.links-top-wrap');
@@ -1006,9 +1006,11 @@
             const header = getAttackHeader();
 
             if (header) {
-                if (box.parentNode !== header.parentNode || box.previousElementSibling !== header) {
-                    header.insertAdjacentElement('afterend', box);
+                if (box.parentNode === header.parentNode && box.previousElementSibling === header) {
+                    box.dataset.mountedMode = 'inline';
+                    return box;
                 }
+                header.insertAdjacentElement('afterend', box);
                 box.dataset.mountedMode = 'inline';
             } else {
                 if (box.parentNode !== document.body) {
@@ -1067,32 +1069,17 @@
         function ensureAttackBoxPersistence(target_id) {
             if (!isAttackPage()) return;
 
-            const ensure = () => {
-                const box = mountAttackBox();
-                const cached = get_fair_fight_response(target_id);
+            const box = mountAttackBox();
+            const cached = get_fair_fight_response(target_id);
 
-                if (cached) {
-                    renderAttackBox(cached, target_id);
-                } else if (!box.innerHTML) {
-                    box.innerHTML = `
-                        <span class="ff-label">FF</span>
-                        <span class="ff-value">Loading...</span>
-                    `;
-                }
-            };
-
-            ensure();
-
-            if (attackBoxObserver) {
-                attackBoxObserver.disconnect();
+            if (cached) {
+                renderAttackBox(cached, target_id);
+            } else if (!box.innerHTML) {
+                box.innerHTML = `
+            <span class="ff-label">FF</span>
+            <span class="ff-value">Loading...</span>
+        `;
             }
-
-            attackBoxObserver = new MutationObserver(() => {
-                if (!isAttackPage()) return;
-                ensure();
-            });
-
-            attackBoxObserver.observe(document.body, { childList: true, subtree: true });
         }
 
         function bootstrapAttackOverlay(forceRefresh = false) {
@@ -1724,8 +1711,8 @@
                 if (!playerId) return;
 
                 const extraRow = mainRow.nextElementSibling && mainRow.nextElementSibling.classList.contains('ff-scouter-extra-row')
-                    ? mainRow.nextElementSibling
-                    : null;
+                ? mainRow.nextElementSibling
+                : null;
 
                 const ffResponse = get_fair_fight_response(playerId);
                 const bsValue = ffResponse && ffResponse.bs_estimate ? ffResponse.bs_estimate : 0;
@@ -2432,8 +2419,8 @@
             }
 
             const iconHtml = (member.status.state === "Hospital" && isAbroad)
-                ? '<span class="hospital-abroad-icon">🌏</span>'
-                : '';
+            ? '<span class="hospital-abroad-icon">🌏</span>'
+            : '';
 
             let statusHTML = `<div class="faction-profile-status ${statusClass}" style="position: relative; display: flex; align-items: center; width: 100%;">`;
             statusHTML += `<a href="https://www.torn.com/loader.php?sid=attack&user2ID=${member.id}" target="_blank" class="status-attack-btn">⚔️</a>`;
@@ -2563,29 +2550,29 @@
 
             fetchFactionData(factionID)
                 .then(data => {
-                    if (!Array.isArray(data.members)) {
-                        console.warn(`No members array for faction ${factionID}`);
-                        return;
-                    }
+                if (!Array.isArray(data.members)) {
+                    console.warn(`No members array for faction ${factionID}`);
+                    return;
+                }
 
-                    const memberMap = {};
-                    data.members.forEach(member => {
-                        memberMap[member.id] = member;
-                    });
-
-                    document.querySelectorAll(".table-body > .table-row").forEach(row => {
-                        const userID = getPlayerIdFromRow(row);
-                        if (!userID) return;
-                        updateFactionProfileMemberStatus(row, memberMap[userID], true);
-                    });
-
-                    updateExtraInfoRowStats();
-                    fixExtraRowsAfterFilter();
-                    scheduleProfileSort(120);
-                })
-                .catch(err => {
-                    console.error("Error fetching faction data for profile", err);
+                const memberMap = {};
+                data.members.forEach(member => {
+                    memberMap[member.id] = member;
                 });
+
+                document.querySelectorAll(".table-body > .table-row").forEach(row => {
+                    const userID = getPlayerIdFromRow(row);
+                    if (!userID) return;
+                    updateFactionProfileMemberStatus(row, memberMap[userID], true);
+                });
+
+                updateExtraInfoRowStats();
+                fixExtraRowsAfterFilter();
+                scheduleProfileSort(120);
+            })
+                .catch(err => {
+                console.error("Error fetching faction data for profile", err);
+            });
         }
 
         function updateFactionProfileTimers() {
@@ -2832,30 +2819,30 @@
             apiCallInProgressCount++;
             fetchFactionData(factionID)
                 .then(data => {
-                    if (!Array.isArray(data.members)) {
-                        console.warn(`No members array for faction ${factionID}`);
-                        return;
-                    }
+                if (!Array.isArray(data.members)) {
+                    console.warn(`No members array for faction ${factionID}`);
+                    return;
+                }
 
-                    const memberMap = {};
-                    data.members.forEach(member => {
-                        memberMap[member.id] = member;
-                    });
-
-                    container.querySelectorAll("li").forEach(li => {
-                        let userID = getPlayerIdFromRow(li);
-                        if (!userID) return;
-                        updateMemberStatus(li, memberMap[userID]);
-                    });
-
-                    scheduleWarSort(120);
-                })
-                .catch(err => {
-                    console.error("Error fetching faction data for faction", factionID, err);
-                })
-                .finally(() => {
-                    apiCallInProgressCount--;
+                const memberMap = {};
+                data.members.forEach(member => {
+                    memberMap[member.id] = member;
                 });
+
+                container.querySelectorAll("li").forEach(li => {
+                    let userID = getPlayerIdFromRow(li);
+                    if (!userID) return;
+                    updateMemberStatus(li, memberMap[userID]);
+                });
+
+                scheduleWarSort(120);
+            })
+                .catch(err => {
+                console.error("Error fetching faction data for faction", factionID, err);
+            })
+                .finally(() => {
+                apiCallInProgressCount--;
+            });
         }
 
         function updateAllMemberTimers() {
@@ -2964,7 +2951,10 @@
             }
         }
 
-        setInterval(reconcilePageState, 500);
+        setInterval(() => {
+            if (isAttackPage()) return;
+            reconcilePageState();
+        }, 1000);
         setInterval(updateAllMemberTimers, 1000);
 
         function showToast(message) {
@@ -3040,10 +3030,10 @@
             const btn = buttons.find(b => b.textContent.trim() === 'Start fight');
             if (!btn) return;
 
-            btn.style.fontSize = '40px';
-            btn.style.padding = '24px 30px';
-            btn.style.minWidth = '320px';
-            btn.style.minHeight = '136px';
+            btn.style.fontSize = '34px';
+            btn.style.padding = '18px 24px';
+            btn.style.minWidth = '280px';
+            btn.style.minHeight = '110px';
             btn.style.position = 'relative';
             btn.style.zIndex = '100000';
         }
@@ -3075,10 +3065,10 @@
         styleStartFightArea();
 
         const startFightObserver = new MutationObserver(() => {
+            if (!isAttackPage()) return;
             styleStartFightArea();
         });
         startFightObserver.observe(document.body, { childList: true, subtree: true });
-
         window.addEventListener('resize', styleStartFightArea);
     }
 })();
