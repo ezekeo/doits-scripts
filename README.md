@@ -122,15 +122,6 @@ This step is required for the script to function correctly.
 
 ---
 
-### ✈️ One Click Travel
-
-Adds one-click travel shortcuts to make travelling between locations faster and more convenient.
-
-**Install (Browser / Torn PDA):**  
-https://raw.githubusercontent.com/doitsburger/doits-scripts/main/one-click-travel/one-click-travel.user.js
-
----
-
 ### 🖼️ Background Image
 
 Adds a simple custom background to Torn.com with a minimal emoji toggle button.  
