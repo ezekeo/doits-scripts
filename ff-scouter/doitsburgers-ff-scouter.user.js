@@ -98,6 +98,20 @@
         '5+': '#c62828'
     };
 
+    const COUNTRY_LIST = [
+        { name:'Mexico', city:'Ciudad Juárez', flag:'/images/v2/travel_agency/flags/fl_mexico.svg' },
+        { name:'Cayman Islands', city:'George Town', flag:'/images/v2/travel_agency/flags/fl_cayman_islands.svg' },
+        { name:'Canada', city:'Toronto', flag:'/images/v2/travel_agency/flags/fl_canada.svg' },
+        { name:'Hawaii', city:'Honolulu', flag:'/images/v2/travel_agency/flags/fl_hawaii.svg' },
+        { name:'United Kingdom', city:'London', flag:'/images/v2/travel_agency/flags/fl_uk.svg' },
+        { name:'Argentina', city:'Buenos Aires', flag:'/images/v2/travel_agency/flags/fl_argentina.svg' },
+        { name:'Switzerland', city:'Zurich', flag:'/images/v2/travel_agency/flags/fl_switzerland.svg' },
+        { name:'Japan', city:'Tokyo', flag:'/images/v2/travel_agency/flags/fl_japan.svg' },
+        { name:'China', city:'Beijing', flag:'/images/v2/travel_agency/flags/fl_china.svg' },
+        { name:'United Arab Emirates', city:'Dubai', flag:'/images/v2/travel_agency/flags/fl_uae.svg' },
+        { name:'South Africa', city:'Johannesburg', flag:'/images/v2/travel_agency/flags/fl_south_africa.svg' }
+    ];
+
     const profileOriginalOrderMap = new Map();
     const warOriginalOrderMaps = {
         your: new Map(),
@@ -822,9 +836,23 @@
             rD_registerMenuCommand = GM_registerMenuCommand;
         }
 
-        var key = rD_getValue("limited_key", null);
+        var key = rD_getValue("limited_key", null); // ffscouter key
+        var tornKey = rD_getValue("torn_api_key", null); // Torn API key
         var info_line = null;
         showExtraRows = rD_getValue('ff_show_extra_rows', true) === true;
+
+        // Prompt for Torn API key if missing
+        if (!tornKey && key) {
+            tornKey = prompt(
+                "FF Scouter: Torn API Key Required\n\n" +
+                "Please enter your Torn API key (limited, from torn.com).\n" +
+                "This is needed for faction member data.",
+                ""
+            );
+            if (tornKey && tornKey.trim()) {
+                rD_setValue("torn_api_key", tornKey.trim());
+            }
+        }
 
         rD_registerMenuCommand('Enter Limited API Key', () => {
             let userInput = prompt("Enter Limited API Key", rD_getValue('limited_key', ""));
@@ -1329,6 +1357,13 @@
             }
         }
 
+        // Cache own faction ID as soon as possible
+        if (tornKey) {
+            fetchUserFactionId(tornKey).then(id => {
+                if (id) userFactionId = id;
+            });
+        }
+
         ensureInfoLineMounted();
         bootstrapCurrentPageFF(true);
         startInfoLineWatcher();
@@ -1522,23 +1557,28 @@
 
         function abbreviateCountry(name) {
             if (!name) return '';
-            const key = name.trim().toLowerCase();
+            // Remove extra words like "airstrip", "City"
+            let clean = name.replace(/\s+(airstrip|City|Islands?)/i, '').trim();
+            const key = clean.toLowerCase();
             const map = {
-                'canada': 'CAN',
+                'united kingdom': 'UK',
+                'uk': 'UK',
+                'england': 'UK',
                 'cayman islands': 'CAY',
+                'cayman': 'CAY',
                 'mexico': 'MEX',
                 'argentina': 'ARG',
-                'uk': 'UK',
-                'united kingdom': 'UK',
-                'hawaii': 'HWAI',
+                'canada': 'CAN',
+                'hawaii': 'HI',
                 'switzerland': 'SWITZ',
                 'south africa': 'SA',
                 'china': 'CHI',
                 'japan': 'JAP',
+                'united arab emirates': 'UAE',
                 'uae': 'UAE',
-                'united arab emirates': 'UAE'
+                'emirates': 'UAE'
             };
-            return map[key] || '';
+            return map[key] || clean.substring(0, 3).toUpperCase();
         }
 
         function formatTime(ms) {
@@ -1550,7 +1590,7 @@
         }
 
         function fetchFactionData(factionID) {
-            const url = `https://api.torn.com/v2/faction/${factionID}/members?striptags=true&key=${key}`;
+            const url = `https://api.torn.com/v2/faction/${factionID}/members?striptags=true&key=${tornKey}`;
             return fetch(url).then(response => response.json());
         }
 
@@ -2016,31 +2056,55 @@
             if (btn) btn.textContent = show ? 'Hide Extra Rows' : 'Show Extra Rows';
         }
 
-        const COUNTRY_MAP = {
-            'united kingdom': 'UK',
-            'uk': 'UK',
-            'england': 'UK',
-            'britain': 'UK',
-            'united arab emirates': 'UAE',
-            'uae': 'UAE',
-            'emirates': 'UAE',
-            'switzerland': 'Switzerland',
-            'swiss': 'Switzerland',
-            'canada': 'Canada',
-            'cayman islands': 'Cayman Islands',
-            'cayman': 'Cayman Islands',
-            'mexico': 'Mexico',
-            'argentina': 'Argentina',
-            'japan': 'Japan',
-            'south africa': 'South Africa',
-            'china': 'China',
-            'hawaii': 'Hawaii'
+        const COUNTRY_FLAG_MAP = {
+            'United Kingdom': '🇬🇧',
+            'UK': '🇬🇧',
+            'Switzerland': '🇨🇭',
+            'Argentina': '🇦🇷',
+            'Japan': '🇯🇵',
+            'South Africa': '🇿🇦',
+            'United Arab Emirates': '🇦🇪',
+            'UAE': '🇦🇪',
+            'Canada': '🇨🇦',
+            'Mexico': '🇲🇽',
+            'Cayman Islands': '🇰🇾',
+            'Hawaii': '🇺🇸',
+            'China': '🇨🇳'
         };
+
+        // Build a lookup that maps any short/alternate form to the full name from COUNTRY_LIST
+        const COUNTRY_NAME_MAP = {};
+        COUNTRY_LIST.forEach(c => {
+            const full = c.name;
+            COUNTRY_NAME_MAP[full.toLowerCase()] = full;
+            // Add common abbreviations / short forms
+            const shortForms = {
+                'United Kingdom': ['uk', 'united kingdom', 'england', 'great britain'],
+                'United Arab Emirates': ['uae', 'united arab emirates', 'emirates'],
+                'Cayman Islands': ['cayman', 'cayman islands'],
+                'South Africa': ['south africa', 'sa'],
+                'Switzerland': ['switzerland', 'swiss'],
+                'Argentina': ['argentina'],
+                'Mexico': ['mexico'],
+                'Canada': ['canada'],
+                'Hawaii': ['hawaii'],
+                'Japan': ['japan'],
+                'China': ['china']
+            };
+            const aliases = shortForms[full] || [];
+            aliases.forEach(alias => COUNTRY_NAME_MAP[alias.toLowerCase()] = full);
+        });
 
         function standardizeCountryName(name) {
             if (!name) return '';
             const lower = name.trim().toLowerCase();
-            return COUNTRY_MAP[lower] || name;
+            return COUNTRY_NAME_MAP[lower] || name.trim();
+        }
+
+        // Get flag URL for a full country name
+        function getFlagUrl(countryFullName) {
+            const entry = COUNTRY_LIST.find(c => c.name === countryFullName);
+            return entry ? entry.flag : null;
         }
 
         let currentDestinationsMode = 'safe';
@@ -2048,25 +2112,60 @@
 
         function extractCountryFromDescription(desc) {
             if (!desc) return null;
-            let match = desc.match(/Traveling to ([A-Za-z\s]+)/i);
-            if (match) return standardizeCountryName(match[1].trim());
-            match = desc.match(/In ([A-Za-z\s]+)/i);
-            if (match) return standardizeCountryName(match[1].trim());
+
+            let match;
+
+            // New pattern: "Traveling from X to Y"
+            match = desc.match(/Traveling from ([A-Za-z\s]+) to ([A-Za-z\s]+)/i);
+            if (match) {
+                // We'll determine later if it's outgoing or returning
+                return { from: standardizeCountryName(match[1].trim()), to: standardizeCountryName(match[2].trim()) };
+            }
+
+            // Legacy: "Traveling to X" (outgoing)
+            match = desc.match(/Traveling to ([A-Za-z\s]+)/i);
+            if (match) return { to: standardizeCountryName(match[1].trim()), from: 'Torn' };
+
+            // Legacy: "Returning to Torn from X"
             match = desc.match(/Returning to Torn from ([A-Za-z\s]+)/i);
-            if (match) return standardizeCountryName(match[1].trim());
+            if (match) return { from: standardizeCountryName(match[1].trim()), to: 'Torn' };
+
+            // Abroad: "In X"
+            match = desc.match(/In ([A-Za-z\s]+)/i);
+            if (match) return { location: standardizeCountryName(match[1].trim()) };
+
             return null;
         }
 
         async function getUserLocation(apiKey) {
-            if (!apiKey) return 'Torn';
+            if (!tornKey) return 'Torn';
             try {
-                const response = await fetch(`https://api.torn.com/v2/user/?selections=basic&key=${apiKey}`);
+                const response = await fetch(`https://api.torn.com/v2/user/?selections=basic&key=${tornKey}`);
                 const data = await response.json();
                 const status = data.status;
-                if (status?.state === 'Traveling' && status.description) {
-                    return extractCountryFromDescription(status.description) || 'Traveling';
-                } else if (status?.state === 'Abroad' && status.description) {
-                    return extractCountryFromDescription(status.description) || 'Abroad';
+                if (!status) return 'Torn';
+
+                if (status.state === 'Traveling') {
+                    const parsed = extractCountryFromDescription(status.description);
+                    if (parsed && parsed.from && parsed.to) {
+                        if (parsed.from === 'Torn' || parsed.from === 'Torn City') {
+                            return standardizeCountryName(parsed.to);
+                        } else if (parsed.to === 'Torn' || parsed.to === 'Torn City') {
+                            return standardizeCountryName(parsed.from);
+                        }
+                    }
+                    // Legacy fallback
+                    if (status.description.includes('Traveling to ')) {
+                        return extractCountryFromDescription(status.description)?.to || 'Traveling';
+                    } else if (status.description.includes('Returning to Torn from ')) {
+                        return extractCountryFromDescription(status.description)?.from || 'Traveling';
+                    }
+                    return 'Traveling';
+                } else if (status.state === 'Abroad') {
+                    const parsed = extractCountryFromDescription(status.description);
+                    if (parsed && parsed.location) return standardizeCountryName(parsed.location);
+                    const match = status.description.match(/In ([A-Za-z\s]+)/i);
+                    return match ? standardizeCountryName(match[1].trim()) : 'Abroad';
                 }
                 return 'Torn';
             } catch (e) {
@@ -2087,8 +2186,8 @@
         }
 
         async function fetchFactionMembers(factionId, apiKey) {
-            if (!apiKey) throw new Error('No API key');
-            const response = await fetch(`https://api.torn.com/v2/faction/${factionId}/members?striptags=true&key=${apiKey}`);
+    if (!apiKey) throw new Error('No API key');
+    const response = await fetch(`https://api.torn.com/v2/faction/${factionId}/members?striptags=true&key=${apiKey}`);
             const data = await response.json();
             if (data.error) throw new Error(data.error);
             if (!Array.isArray(data.members)) throw new Error('No members data');
@@ -2096,10 +2195,17 @@
         }
 
         async function fetchUserFactionId(apiKey) {
-            if (userFactionId) return userFactionId;
+            // 1. Try from page first (most reliable, instant)
+            const pageId = getUserFactionIdFromPage();
+            if (pageId) {
+                userFactionId = pageId;
+                return pageId;
+            }
+
+            // 2. Fall back to API if we have a key
             if (!apiKey) return null;
             try {
-                const response = await fetch(`https://api.torn.com/v2/user/?selections=profile&key=${apiKey}`);
+                const response = await fetch(`https://api.torn.com/v2/user/?selections=profile&key=${tornKey}`);
                 const data = await response.json();
                 if (!data.error && data.faction?.faction_id) {
                     userFactionId = data.faction.faction_id;
@@ -2117,35 +2223,66 @@
                 Abroad: {},
                 Returning: {}
             };
+
             members.forEach(member => {
                 const status = member.status;
                 if (!status) return;
-                if (['Okay', 'Hospital', 'Jail'].includes(status.state)) {
-                    groups.Torn.push({ name: member.name, status: status.state });
-                } else if (status.state === 'Traveling') {
-                    const dest = extractCountryFromDescription(status.description) || 'Unknown';
-                    if (status.description?.includes('Returning')) {
-                        if (!groups.Returning[dest]) groups.Returning[dest] = [];
-                        groups.Returning[dest].push({ name: member.name, status: 'Returning' });
-                    } else {
-                        if (!groups.Traveling[dest]) groups.Traveling[dest] = [];
-                        groups.Traveling[dest].push({ name: member.name, status: 'Traveling' });
+
+                const state = status.state;
+                const desc = status.description || '';
+
+                if (state === 'Okay' || state === 'Hospital' || state === 'Jail') {
+                    groups.Torn.push({ name: member.name, status: state, onlineStatus: member.last_action?.status || 'Offline' });
+                }
+                else if (state === 'Traveling') {
+                    // Parse the new format: "Traveling from X to Y"
+                    const parsed = extractCountryFromDescription(desc);
+                    if (parsed && parsed.from && parsed.to) {
+                        if (parsed.to === 'Torn' || parsed.to === 'Torn City') {
+                            // Returning
+                            const dest = parsed.from;
+                            if (!groups.Returning[dest]) groups.Returning[dest] = [];
+                            groups.Returning[dest].push({ name: member.name, status: 'Returning', onlineStatus: member.last_action?.status || 'Offline' });
+                        } else if (parsed.from === 'Torn' || parsed.from === 'Torn City') {
+                            // Traveling to destination
+                            const dest = parsed.to;
+                            if (!groups.Traveling[dest]) groups.Traveling[dest] = [];
+                            groups.Traveling[dest].push({ name: member.name, status: 'Traveling', onlineStatus: member.last_action?.status || 'Offline' });
+                        } else {
+                            // Neither is Torn? Fallback to treating 'to' as destination
+                            const dest = parsed.to;
+                            if (!groups.Traveling[dest]) groups.Traveling[dest] = [];
+                            groups.Traveling[dest].push({ name: member.name, status: 'Traveling', onlineStatus: member.last_action?.status || 'Offline' });
+                        }
                     }
-                } else if (status.state === 'Abroad') {
-                    const dest = extractCountryFromDescription(status.description) || 'Unknown';
+                    // Legacy fallback
+                    else if (desc.includes('Returning to Torn from ')) {
+                        const dest = desc.replace('Returning to Torn from ', '').trim();
+                        if (!groups.Returning[dest]) groups.Returning[dest] = [];
+                        groups.Returning[dest].push({ name: member.name, status: 'Returning', onlineStatus: member.last_action?.status || 'Offline' });
+                    } else if (desc.includes('Traveling to ')) {
+                        const dest = desc.replace('Traveling to ', '').trim();
+                        if (!groups.Traveling[dest]) groups.Traveling[dest] = [];
+                        groups.Traveling[dest].push({ name: member.name, status: 'Traveling', onlineStatus: member.last_action?.status || 'Offline' });
+                    }
+                }
+                else if (state === 'Abroad') {
+                    const parsed = extractCountryFromDescription(desc);
+                    let dest = 'Unknown';
+                    if (parsed && parsed.location) dest = parsed.location;
+                    else if (desc.match(/In ([A-Za-z\s]+)/i)) dest = desc.match(/In ([A-Za-z\s]+)/i)[1].trim();
+                    dest = standardizeCountryName(dest);
                     if (!groups.Abroad[dest]) groups.Abroad[dest] = [];
-                    groups.Abroad[dest].push({ name: member.name, status: 'Abroad' });
+                    groups.Abroad[dest].push({ name: member.name, status: 'Abroad', onlineStatus: member.last_action?.status || 'Offline' });
                 }
             });
+
             return groups;
         }
 
         function renderDestinationsPanel(container, groups, mode, userLocation, isOwnFaction) {
             container.innerHTML = '';
-            const allCountries = [
-                'UK', 'Switzerland', 'Argentina', 'Japan', 'South Africa',
-                'UAE', 'Canada', 'Mexico', 'Cayman Islands', 'Hawaii', 'China'
-            ];
+            const allCountries = COUNTRY_LIST.map(c => c.name);
 
             if (mode === 'safe') {
                 const occupied = new Set();
@@ -2159,8 +2296,10 @@
                 safe.forEach(country => {
                     const item = document.createElement('div');
                     item.className = 'member-item';
+                    const flagUrl = getFlagUrl(country);
+                    const flagImg = flagUrl ? `<img src="${flagUrl}" style="width:16px;height:11px;margin-right:4px;vertical-align:middle;">` : '';
                     const tag = (userLocation === country) ? '<span class="location-tag">You are here</span>' : '';
-                    item.innerHTML = `<span class="member-name">${country} ${tag}</span> <span class="member-status">✅ Safe</span>`;
+                    item.innerHTML = `<span class="member-name">${flagImg}${country} ${tag}</span> <span class="member-status">✅ Safe</span>`;
                     container.appendChild(item);
                 });
             } else {
@@ -2196,7 +2335,11 @@
             members.forEach(m => {
                 const item = document.createElement('div');
                 item.className = 'member-item';
-                item.innerHTML = `<span class="member-name ${nameClass}">${m.name}</span> <span class="member-status">${m.status}</span>`;
+                const onlineCircle =
+                      m.onlineStatus === 'Online' ? '🟢' :
+                m.onlineStatus === 'Idle' ? '🟡' :
+                '⚫';
+                item.innerHTML = `<span class="member-name ${nameClass}">${onlineCircle} ${m.name}</span> <span class="member-status">${m.status}</span>`;
                 membersDiv.appendChild(item);
             });
             group.querySelector('.group-header').addEventListener('click', (e) => {
@@ -2215,52 +2358,36 @@
                 return;
             }
 
-            const factionId = getFactionIdFromContext();
-            if (!factionId) {
-                alert('No faction detected. Open a war or faction profile page.');
-                return;
-            }
-
             const apiKey = key;
             if (!apiKey) {
                 alert('API key required.');
                 return;
             }
 
-            const userFaction = await fetchUserFactionId(apiKey);
-            const isOwnFaction = (userFaction && userFaction == factionId);
-
             const panel = document.createElement('div');
             panel.className = 'destinations-panel';
+            panel.innerHTML = `
+        <div class="destinations-header">
+            <h2>🌍 Destinations</h2>
+            <button class="destinations-close">✕</button>
+        </div>
+        <div class="destinations-toolbar">
+            <div class="destinations-toggle">
+              <button class="toggle-btn active" data-mode="safe">Unoccupied</button>
+              <button class="toggle-btn" data-mode="enemy">Locations</button>
+              <button class="toggle-btn" data-mode="danger">⚠️ Danger</button>
+            </div>
+            <button class="refresh-btn" id="refresh-destinations">🔄 Refresh</button>
+        </div>
+        <div class="destinations-content">
+            <div class="loading">Loading...</div>
+        </div>
+    `;
 
-            const header = document.createElement('div');
-            header.className = 'destinations-header';
-            let title = '🌍 Destinations';
-            header.innerHTML = `<h2>${title}</h2><button class="destinations-close">✕</button>`;
-            panel.appendChild(header);
-
-            const toolbar = document.createElement('div');
-            toolbar.className = 'destinations-toolbar';
-            const safeLabel = 'Unoccupied';
-            const factionLabel = 'Member locations';
-            toolbar.innerHTML = `
-                <div class="destinations-toggle">
-                    <button class="toggle-btn ${currentDestinationsMode === 'safe' ? 'active' : ''}" data-mode="safe">${safeLabel}</button>
-                    <button class="toggle-btn ${currentDestinationsMode === 'enemy' ? 'active' : ''}" data-mode="enemy">${factionLabel}</button>
-                </div>
-                <button class="refresh-btn" id="refresh-destinations">🔄 Refresh</button>
-            `;
-            panel.appendChild(toolbar);
-
-            const content = document.createElement('div');
-            content.className = 'destinations-content';
-            content.innerHTML = '<div class="loading">Loading destination data...</div>';
-            panel.appendChild(content);
             document.body.appendChild(panel);
 
             panel.querySelector('.destinations-close').addEventListener('click', () => panel.remove());
             panel.addEventListener('click', (e) => e.stopPropagation());
-
             setTimeout(() => {
                 document.addEventListener('click', function outsideClick(e) {
                     if (!panel.contains(e.target)) {
@@ -2270,50 +2397,343 @@
                 });
             }, 0);
 
+            const content = panel.querySelector('.destinations-content');
             const toggleBtns = panel.querySelectorAll('.toggle-btn');
+            const refreshBtn = panel.querySelector('#refresh-destinations');
+
+            const setMode = async (mode) => {
+                toggleBtns.forEach(b => b.classList.remove('active'));
+                panel.querySelector(`[data-mode="${mode}"]`).classList.add('active');
+                currentDestinationsMode = mode;
+                panel.querySelector('.destinations-header h2').innerHTML =
+                    mode === 'danger' ? '🚨 Danger Zones' :
+                mode === 'enemy' ? '📍 Locations' :
+                '🌍 Destinations';
+                try {
+                    await loadDestinations(content, apiKey);
+                } catch (e) {
+                    console.error('Error loading destinations tab:', e);
+                    content.innerHTML = '<div class="error">Error loading. Check console.</div>';
+                }
+            };
+
             toggleBtns.forEach(btn => {
-                btn.addEventListener('click', () => {
-                    toggleBtns.forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    currentDestinationsMode = btn.dataset.mode;
-                    loadDestinations(content, apiKey, isOwnFaction);
-                });
+                btn.addEventListener('click', () => setMode(btn.dataset.mode));
             });
 
-            const refreshBtn = panel.querySelector('#refresh-destinations');
-            refreshBtn.addEventListener('click', () => {
+            refreshBtn.addEventListener('click', async () => {
                 refreshBtn.disabled = true;
                 refreshBtn.innerHTML = '⏳ Loading...';
-                loadDestinations(content, apiKey, isOwnFaction).finally(() => {
-                    refreshBtn.disabled = false;
-                    refreshBtn.innerHTML = '🔄 Refresh';
-                });
+                await setMode(currentDestinationsMode);
+                refreshBtn.disabled = false;
+                refreshBtn.innerHTML = '🔄 Refresh';
             });
 
-            await loadDestinations(content, apiKey, isOwnFaction);
+            await setMode('safe'); // default tab
         }
 
-        async function loadDestinations(content, apiKey, isOwnFaction) {
-            content.innerHTML = '<div class="loading">Loading destination data...</div>';
-            try {
-                const factionId = getFactionIdFromContext();
-                if (!factionId) throw new Error('No faction ID');
-                const [userLocation, members] = await Promise.all([
-                    getUserLocation(apiKey),
-                    fetchFactionMembers(factionId, apiKey)
-                ]);
-                const groups = groupMembersByDestination(members);
-                renderDestinationsPanel(content, groups, currentDestinationsMode, userLocation, isOwnFaction);
-            } catch (err) {
-                content.innerHTML = `<div class="error">Error loading data: ${err.message}</div>`;
+        async function loadDestinations(content, apiKey) {
+            content.innerHTML = '<div class="loading">Loading...</div>';
+
+            if (currentDestinationsMode === 'danger') {
+                await loadDangerZones(content, apiKey);
+                return;
             }
+
+            if (currentDestinationsMode === 'safe') {
+    // Unoccupied tab – shows safe (unoccupied) countries
+    try {
+        const factionId = getFactionIdFromContext();
+        if (!factionId) throw new Error('No faction detected. Open from a faction profile or war page.');
+
+        const [userLocation, members] = await Promise.all([
+            getUserLocation(apiKey),
+            fetchFactionMembers(factionId, apiKey)
+        ]);
+
+        const groups = groupMembersByDestination(members);
+        renderDestinationsPanel(content, groups, 'safe', userLocation, false);
+    } catch (err) {
+        content.innerHTML = `<div class="error">${err.message}</div>`;
+    }
+    return;
+}
+
+// Locations tab – the faction whose page we're viewing
+let factionId = getFactionIdFromContext();
+
+if (!factionId) {
+    content.innerHTML = '<div class="error">No faction detected.</div>';
+    return;
+}
+
+try {
+    const [userLocation, members] = await Promise.all([
+        getUserLocation(apiKey),
+        fetchFactionMembers(factionId, apiKey)
+    ]);
+
+    const groups = groupMembersByDestination(members);
+    const isOwnFaction = (userFactionId && userFactionId == factionId);
+    renderDestinationsPanel(content, groups, 'enemy', userLocation, isOwnFaction);
+} catch (err) {
+    content.innerHTML = `<div class="error">${err.message}</div>`;
+}
         }
 
-        function updateFactionProfileMemberStatus(li, member, isFactionProfilePage) {
-            if (!member || !member.status) return;
+        async function loadDangerZones(content, apiKey) {
+            // --- Determine faction IDs without breaking ---
+            let yourFactionId = null;
+            let enemyFactionId = null;
 
-            let statusEl = li.querySelector('.status');
+            // Method 1: from war page DOM (existing function in script)
+            try {
+                const ids = getWarFactionIds();
+                if (ids && ids.yourFactionId && ids.enemyFactionId) {
+                    yourFactionId = ids.yourFactionId;
+                    enemyFactionId = ids.enemyFactionId;
+                }
+            } catch (e) { /* quiet */ }
+
+            // Method 2: if that failed, try the page's torn-data (your ID only)
+            if (!yourFactionId) {
+                try {
+                    const tornEl = document.getElementById('torn-data');
+                    if (tornEl) {
+                        const data = JSON.parse(tornEl.textContent);
+                        yourFactionId = data?.user?.faction?.faction_id || null;
+                    }
+                } catch (e) {}
+            }
+
+            // If still no yourFactionId, try API (user's own profile)
+            if (!yourFactionId) {
+                try {
+                    const ufid = await fetchUserFactionId(apiKey);
+                    if (ufid) yourFactionId = ufid;
+                } catch (e) {}
+            }
+
+            // If we can't find enemy ID, we can't do danger zones
+            if (!enemyFactionId) {
+                content.innerHTML = '<div class="error">Enemy faction not detected. Open this tab while on a ranked‑war page.</div>';
+                return;
+            }
+            if (!yourFactionId) {
+                content.innerHTML = '<div class="error">Your faction ID could not be determined.</div>';
+                return;
+            }
+
+            // Fetch both faction members
+            let ownMembers, enemyMembers;
+            try {
+                [ownMembers, enemyMembers] = await Promise.all([
+                    fetchFactionMembers(yourFactionId, apiKey),
+                    fetchFactionMembers(enemyFactionId, apiKey)
+                ]);
+            } catch (err) {
+                content.innerHTML = `<div class="error">Failed to fetch members: ${err.message}</div>`;
+                return;
+            }
+
+            if (!ownMembers || !enemyMembers) {
+                content.innerHTML = '<div class="error">No member data received.</div>';
+                return;
+            }
+
+            // -------- Fetch enemy FF/BS data from API ----------
+            const allEnemyIds = enemyMembers.map(m => m.id).filter(Boolean);
+            const uniqueEnemyIds = [...new Set(allEnemyIds)];
+
+            if (uniqueEnemyIds.length > 0) {
+                content.innerHTML = '<div class="loading">Fetching enemy stats...</div>';
+                await new Promise((resolve) => {
+                    update_ff_cache(uniqueEnemyIds, () => {
+                        resolve();
+                    });
+                });
+            }
+            // ----------------------------------------------------
+
+            // Build location maps (uses the helper defined below)
+            const ownMap = buildMemberLocationMap(ownMembers);
+            const enemyMap = buildMemberLocationMap(enemyMembers);
+
+            // Find overlapping countries
+            const dangerZones = {};
+            for (const [country, own] of Object.entries(ownMap)) {
+                if (!enemyMap[country]) continue;
+                const enemy = enemyMap[country];
+                const hasOwn = own.present.length + own.traveling.length > 0;
+                const hasEnemy = enemy.present.length + enemy.traveling.length > 0;
+                if (hasOwn && hasEnemy) {
+                    dangerZones[country] = {
+                        country,
+                        friendlyPresent: own.present,
+                        friendlyTraveling: own.traveling,
+                        enemyPresent: enemy.present,
+                        enemyTraveling: enemy.traveling
+                    };
+                }
+            }
+
+            const sortedKeys = Object.keys(dangerZones).sort((a, b) => a.localeCompare(b));
+            if (!sortedKeys.length) {
+                content.innerHTML = '<div class="no-data">No danger zones detected.</div>';
+                return;
+            }
+
+            // Render
+            content.innerHTML = '';
+            sortedKeys.forEach(country => {
+                const zone = dangerZones[country];
+                const flagUrl = getFlagUrl(country);
+                const flagHtml = flagUrl
+                ? `<img src="${flagUrl}" style="width:18px;height:12px;vertical-align:middle;margin-right:4px;">`
+            : (COUNTRY_FLAG_MAP?.[country] || '🌍'); // safe fallback
+
+                const group = document.createElement('div');
+                group.className = 'destination-group';
+                group.innerHTML = `
+            <div class="group-header">
+                <span class="group-name">AT RISK ${flagHtml} ${country}</span>
+                <span class="collapse-icon">▼</span>
+            </div>
+            <div class="group-members"></div>
+        `;
+                const membersDiv = group.querySelector('.group-members');
+
+                // Friendly members (present + traveling) sorted by BS descent
+                const friendly = [...zone.friendlyPresent.map(m => ({...m, type:'present'})),
+                                  ...zone.friendlyTraveling.map(m => ({...m, type:'traveling'}))];
+                friendly.sort((a,b) => (b.bs||0) - (a.bs||0));
+                friendly.forEach(m => {
+                    const icon = m.type === 'present' ? '📍' : '→';
+                    const item = document.createElement('div');
+                    item.className = 'member-item';
+                    const onlineCircle = m.status === 'Online' ? '🟢' : (m.status === 'Idle' ? '🟡' : '⚫');
+                    item.innerHTML = `${icon} ${onlineCircle} ${m.name} (≈ ${m.bsHuman || 'N/A'})`;
+                    membersDiv.appendChild(item);
+                });
+
+                // Enemy present
+                if (zone.enemyPresent.length) {
+                    const present = [...zone.enemyPresent].sort((a,b) => (b.bs||0)-(a.bs||0));
+                    const header = document.createElement('div');
+                    header.className = 'member-item';
+                    header.style.fontWeight = 'bold';
+                    header.textContent = `⚔️ Present (${present.length})`;
+                    membersDiv.appendChild(header);
+                    present.forEach(m => {
+                        const item = document.createElement('div');
+                        item.className = 'member-item';
+                        const onlineCircle = m.status === 'Online' ? '🔴' : (m.status === 'Idle' ? '🟡' : '⚫');
+                        item.innerHTML = `${onlineCircle} ${m.name} (≈ ${m.bsHuman || 'N/A'})`;
+                        membersDiv.appendChild(item);
+                    });
+                }
+
+                // Enemy inbound
+                if (zone.enemyTraveling.length) {
+                    const inbound = [...zone.enemyTraveling].sort((a,b) => (b.bs||0)-(a.bs||0));
+                    const header = document.createElement('div');
+                    header.className = 'member-item';
+                    header.style.fontWeight = 'bold';
+                    header.textContent = `✈️ Inbound (${inbound.length})`;
+                    membersDiv.appendChild(header);
+                    inbound.forEach(m => {
+                        const item = document.createElement('div');
+                        item.className = 'member-item';
+                        const onlineCircle = m.status === 'Online' ? '🔴' : (m.status === 'Idle' ? '🟡' : '⚫');
+                        item.innerHTML = `${onlineCircle} ${m.name} (≈ ${m.bsHuman || 'N/A'})`;
+                        membersDiv.appendChild(item);
+                    });
+                }
+
+                group.querySelector('.group-header').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    group.classList.toggle('collapsed');
+                    const icon = group.querySelector('.collapse-icon');
+                    icon.textContent = group.classList.contains('collapsed') ? '▶' : '▼';
+                });
+
+                content.appendChild(group);
+            });
+        }
+
+        function buildMemberLocationMap(members) {
+            const map = {}; // country -> { present: [...], traveling: [...] }
+
+            members.forEach(member => {
+                if (!member || !member.status) return;
+                const status = member.status;
+                let country = null;
+                let type = null; // 'present' = abroad, 'traveling' = heading there
+
+                if (status.state === 'Abroad') {
+                    const parsed = extractCountryFromDescription(status.description);
+                    country = parsed?.location || null;
+                    if (country) type = 'present';
+                } else if (status.state === 'Traveling') {
+                    const parsed = extractCountryFromDescription(status.description);
+                    if (parsed && parsed.from && parsed.to) {
+                        if (parsed.from === 'Torn' || parsed.from === 'Torn City') {
+                            country = parsed.to;
+                            type = 'traveling';
+                        } else if (parsed.to === 'Torn' || parsed.to === 'Torn City') {
+                            // returning home – ignore for danger zone (they are coming back)
+                            country = null;
+                        } else {
+                            // neither Torn, assume heading to 'to'
+                            country = parsed.to;
+                            type = 'traveling';
+                        }
+                    } else {
+                        // legacy
+                        if (status.description.includes('Traveling to ')) {
+                            country = status.description.replace('Traveling to ', '').trim();
+                            type = 'traveling';
+                        }
+                    }
+                }
+
+                if (country && type) {
+                    country = standardizeCountryName(country);
+                    if (!map[country]) map[country] = { present: [], traveling: [] };
+
+                    // Retrieve BS estimate
+                    const ffResponse = get_fair_fight_response(member.id);
+                    const bsValue = ffResponse?.bs_estimate || 0;
+                    const bsHuman = ffResponse?.bs_estimate_human || (ffResponse?.bs_estimate ? formatBattleStats(ffResponse.bs_estimate) : 'N/A');
+
+                    map[country][type].push({
+                        name: member.name,
+                        id: member.id,
+                        bs: bsValue,
+                        bsHuman: bsHuman,
+                        status: member.last_action?.status || 'Offline'
+                    });
+                }
+            });
+
+            return map;
+        }
+
+        function renderSharedMemberStatus(row, member, options = {}) {
+            if (!row || !member || !member.status) return;
+
+            const statusEl = row.querySelector('.status');
             if (!statusEl) return;
+
+            const showAttackButton = options.showAttackButton === true;
+
+            statusEl.classList.remove(
+                'faction-status-okay',
+                'faction-status-hospital',
+                'faction-status-traveling',
+                'faction-status-abroad',
+                'faction-status-jail'
+            );
 
             let statusText = '';
             let statusClass = '';
@@ -2321,119 +2741,217 @@
             let isAbroad = false;
             let destination = '';
 
-            switch(member.status.state) {
+            switch (member.status.state) {
                 case "Okay":
                     statusText = "Okay";
                     statusClass = 'faction-status-okay';
                     break;
 
                 case "Traveling": {
-                    let description = member.status.description || '';
+                    const description = member.status.description || '';
+                    console.log('[FF] Traveling description:', description); // optional debug
                     let location = '';
                     let isReturning = false;
-                    if (description.includes("Returning to Torn from ")) {
-                        location = description.replace("Returning to Torn from ", "");
-                        isReturning = true;
-                    } else if (description.includes("Traveling to ")) {
-                        location = description.replace("Traveling to ", "");
+
+                    const parsed = extractCountryFromDescription(description);
+                    if (parsed && parsed.from && parsed.to) {
+                        if (parsed.from === 'Torn' || parsed.from === 'Torn City') {
+                            // Traveling from Torn -> outgoing
+                            isReturning = false;
+                            location = parsed.to;
+                        } else if (parsed.to === 'Torn' || parsed.to === 'Torn City') {
+                            // Traveling to Torn -> returning
+                            isReturning = true;
+                            location = parsed.from;
+                        } else {
+                            // Neither Torn? Fallback: treat as outgoing to "to"
+                            isReturning = false;
+                            location = parsed.to;
+                        }
+                    } else if (parsed && parsed.location) {
+                        // Abroad case (shouldn't happen in Traveling, but safe)
+                        location = parsed.location;
+                        isReturning = false;
+                    } else {
+                        // Fallback: try legacy extraction
+                        if (description.includes("Traveling to ")) {
+                            location = description.replace("Traveling to ", "").trim();
+                            isReturning = false;
+                        } else if (description.includes("Returning to Torn from ")) {
+                            location = description.replace("Returning to Torn from ", "").trim();
+                            isReturning = true;
+                        } else {
+                            // Last resort: try to find any country name
+                            const words = description.split(' ');
+                            for (let word of words) {
+                                if (word.length > 2 && word[0] === word[0].toUpperCase()) {
+                                    location = word;
+                                    break;
+                                }
+                            }
+                        }
                     }
+
+                    if (!location) location = 'Unknown';
                     destination = standardizeCountryName(location);
-                    let abbr = abbreviateCountry(location);
+                    const abbr = abbreviateCountry(location);
+
                     statusText = isReturning
                         ? `${tornSymbol} ${createPlaneSvg(true)} ${abbr}`
-                        : `${tornSymbol} ${createPlaneSvg(false)} ${abbr}`;
+        : `${tornSymbol} ${createPlaneSvg(false)} ${abbr}`;
                     statusClass = 'faction-status-traveling';
-                    if (member.status.until) untilTime = parseInt(member.status.until, 10) * 1000;
+
+                    if (member.status.until) {
+                        untilTime = parseInt(member.status.until, 10) * 1000;
+                    }
                     break;
                 }
 
                 case "Abroad": {
-                    let abroadDesc = member.status.description || '';
+                    const description = member.status.description || '';
                     let location = '';
-                    if (abroadDesc.startsWith("In ")) {
-                        location = abroadDesc.replace("In ", "");
-                        let abbr = abbreviateCountry(location);
+
+                    if (description.startsWith("In ")) {
+                        location = description.replace("In ", "").trim();
+                        const abbr = abbreviateCountry(location);
                         statusText = `🌏 ${abbr}`;
                         destination = standardizeCountryName(location);
                     } else {
                         statusText = "Abroad";
                     }
+
                     statusClass = 'faction-status-abroad';
                     break;
                 }
 
                 case "Hospital": {
                     statusClass = 'faction-status-hospital';
-                    let dest = null;
+
                     if (member.status.description) {
                         const descLower = member.status.description.toLowerCase();
+
                         const countryMap = {
                             'canadian': 'Canada',
+                            'canada': 'Canada',
                             'cayman': 'Cayman Islands',
+                            'cayman islands': 'Cayman Islands',
                             'mexican': 'Mexico',
+                            'mexico': 'Mexico',
                             'argentine': 'Argentina',
+                            'argentina': 'Argentina',
                             'uk': 'UK',
                             'british': 'UK',
+                            'united kingdom': 'UK',
                             'hawaiian': 'Hawaii',
+                            'hawaii': 'Hawaii',
                             'swiss': 'Switzerland',
+                            'switzerland': 'Switzerland',
                             'south african': 'South Africa',
+                            'south africa': 'South Africa',
                             'chinese': 'China',
+                            'china': 'China',
                             'japanese': 'Japan',
-                            'emirati': 'UAE'
+                            'japan': 'Japan',
+                            'emirati': 'UAE',
+                            'uae': 'UAE',
+                            'united arab emirates': 'UAE'
                         };
-                        for (let [key, full] of Object.entries(countryMap)) {
+
+                        for (const [key, full] of Object.entries(countryMap)) {
                             if (descLower.includes(key)) {
                                 isAbroad = true;
-                                dest = standardizeCountryName(full);
+                                destination = standardizeCountryName(full);
                                 break;
                             }
                         }
                     }
-                    destination = isAbroad ? dest : '';
-                    if (member.status.until) untilTime = parseInt(member.status.until, 10) * 1000;
+
+                    if (member.status.until) {
+                        untilTime = parseInt(member.status.until, 10) * 1000;
+                    }
+
                     statusText = '';
                     break;
                 }
 
                 case "Jail":
                     statusClass = 'faction-status-jail';
-                    if (member.status.until) untilTime = parseInt(member.status.until, 10) * 1000;
+
+                    if (member.status.until) {
+                        untilTime = parseInt(member.status.until, 10) * 1000;
+                    }
+
                     break;
 
                 default:
-                    statusText = member.status.state || "";
+                    statusText = member.status.state || '';
                     statusClass = '';
             }
 
-            if (untilTime > 0) memberCountdowns[member.id] = untilTime;
-            else delete memberCountdowns[member.id];
-
-            if (isFactionProfilePage) {
-                createOrUpdateExtraInfoRow(li, member);
+            if (untilTime > 0) {
+                memberCountdowns[member.id] = untilTime;
+            } else {
+                delete memberCountdowns[member.id];
             }
 
             let countdownText = '';
             if (untilTime > 0) {
-                let remaining = untilTime - Date.now();
-                countdownText = remaining > 0 ? formatTime(remaining) : "00:00:00";
+                const remaining = untilTime - Date.now();
+                countdownText = remaining > 0 ? formatTime(remaining) : '00:00:00';
             }
 
-            const iconHtml = (member.status.state === "Hospital" && isAbroad)
-            ? '<span class="hospital-abroad-icon">🌏</span>'
-            : '';
+            statusEl.classList.add(statusClass);
 
-            let statusHTML = `<div class="faction-profile-status ${statusClass}" style="position: relative; display: flex; align-items: center; width: 100%;">`;
-            statusHTML += `<a href="https://www.torn.com/loader.php?sid=attack&user2ID=${member.id}" target="_blank" class="status-attack-btn">⚔️</a>`;
-            statusHTML += `<div class="status-text-container">`;
-            statusHTML += `<span class="status-text">${statusText}</span>`;
+            let statusHTML = `
+        <div class="faction-profile-status ${statusClass}" style="position: relative; display: flex; align-items: center; width: 100%;">
+    `;
+
+            if (showAttackButton) {
+                statusHTML += `
+            <a href="https://www.torn.com/loader.php?sid=attack&user2ID=${member.id}" target="_blank" class="status-attack-btn">⚔️</a>
+        `;
+            }
+
+            statusHTML += `
+            <div class="status-text-container">
+    `;
+
+            if (statusText) {
+                statusHTML += `<span class="status-text">${statusText}</span>`;
+            }
+
             if (countdownText) {
                 statusHTML += `<span class="faction-status-countdown">${countdownText}</span>`;
             }
-            statusHTML += `</div>${iconHtml}</div>`;
+
+            statusHTML += `
+            </div>
+`;
+
+            if (member.status.state === "Hospital" && isAbroad) {
+                statusHTML += `<span class="hospital-abroad-icon">🌏</span>`;
+            }
+
+            statusHTML += `
+        </div>
+`;
 
             statusEl.innerHTML = statusHTML;
-            li.dataset.destination = destination || '';
-            li.dataset.lastAction = member.last_action?.timestamp ? String(member.last_action.timestamp * 1000) : '0';
+
+            row.dataset.destination = destination || '';
+            row.dataset.lastAction = member.last_action?.timestamp ? String(member.last_action.timestamp * 1000) : '0';
+        }
+
+        function updateFactionProfileMemberStatus(li, member, isFactionProfilePage) {
+            if (!member || !member.status) return;
+
+            renderSharedMemberStatus(li, member, {
+                showAttackButton: true
+            });
+
+            if (isFactionProfilePage) {
+                createOrUpdateExtraInfoRow(li, member);
+            }
         }
 
         function createOrUpdateExtraInfoRow(li, member) {
@@ -2691,128 +3209,28 @@
         function updateMemberStatus(li, member) {
             if (!member || !member.status) return;
 
-            let statusEl = li.querySelector('.status');
-            if (!statusEl) return;
-
-            statusEl.classList.remove(
-                'faction-status-okay',
-                'faction-status-hospital',
-                'faction-status-traveling',
-                'faction-status-abroad',
-                'faction-status-jail'
-            );
+            renderSharedMemberStatus(li, member, {
+                showAttackButton: false
+            });
 
             let lastActionRow = li.querySelector('.last-action-row');
-            let lastActionText = member.last_action?.relative || '';
+            const lastActionText = member.last_action?.relative || '';
+
             if (lastActionRow) {
                 lastActionRow.textContent = `Last Action: ${lastActionText}`;
             } else {
                 lastActionRow = document.createElement('div');
                 lastActionRow.className = 'last-action-row';
                 lastActionRow.textContent = `Last Action: ${lastActionText}`;
-                let lastDiv = Array.from(li.children).reverse().find(el => el.tagName === 'DIV');
-                if (lastDiv?.nextSibling) li.insertBefore(lastActionRow, lastDiv.nextSibling);
-                else li.appendChild(lastActionRow);
-            }
 
-            let destination = '';
+                const lastDiv = Array.from(li.children).reverse().find(el => el.tagName === 'DIV');
 
-            if (member.status.state === "Okay") {
-                statusEl.classList.add('faction-status-okay');
-                if (statusEl.dataset.originalHtml) {
-                    statusEl.innerHTML = statusEl.dataset.originalHtml;
-                    delete statusEl.dataset.originalHtml;
-                }
-                statusEl.textContent = "Okay";
-            } else if (member.status.state === "Traveling") {
-                statusEl.classList.add('faction-status-traveling');
-                if (!statusEl.dataset.originalHtml) statusEl.dataset.originalHtml = statusEl.innerHTML;
-                let description = member.status.description || '';
-                let location = '';
-                let isReturning = false;
-                if (description.includes("Returning to Torn from ")) {
-                    location = description.replace("Returning to Torn from ", "");
-                    isReturning = true;
-                } else if (description.includes("Traveling to ")) {
-                    location = description.replace("Traveling to ", "");
-                }
-                destination = standardizeCountryName(location);
-                let abbr = abbreviateCountry(location);
-                statusEl.innerHTML = isReturning
-                    ? `<span class="travel-status">${tornSymbol} ${createPlaneSvg(true)}</span>`
-                    : `<span class="travel-status">${createPlaneSvg(false)} ${abbr}</span>`;
-            } else if (member.status.state === "Abroad") {
-                statusEl.classList.add('faction-status-abroad');
-                if (!statusEl.dataset.originalHtml) statusEl.dataset.originalHtml = statusEl.innerHTML;
-                let description = member.status.description || '';
-                if (description.startsWith("In ")) {
-                    let location = description.replace("In ", "");
-                    let abbr = abbreviateCountry(location);
-                    statusEl.textContent = `🌏 ${abbr}`;
-                    destination = standardizeCountryName(location);
+                if (lastDiv?.nextSibling) {
+                    li.insertBefore(lastActionRow, lastDiv.nextSibling);
                 } else {
-                    statusEl.textContent = "Abroad";
+                    li.appendChild(lastActionRow);
                 }
-            } else if (member.status.state === "Hospital") {
-                statusEl.classList.add('faction-status-hospital');
-
-                let isAbroad = false;
-                let dest = null;
-                if (member.status.description) {
-                    const descLower = member.status.description.toLowerCase();
-                    const countryMap = {
-                        'canadian': 'Canada',
-                        'cayman': 'Cayman Islands',
-                        'mexican': 'Mexico',
-                        'argentine': 'Argentina',
-                        'uk': 'UK',
-                        'british': 'UK',
-                        'hawaiian': 'Hawaii',
-                        'swiss': 'Switzerland',
-                        'south african': 'South Africa',
-                        'chinese': 'China',
-                        'japanese': 'Japan',
-                        'emirati': 'UAE'
-                    };
-                    for (let [key, full] of Object.entries(countryMap)) {
-                        if (descLower.includes(key)) {
-                            isAbroad = true;
-                            dest = standardizeCountryName(full);
-                            break;
-                        }
-                    }
-                }
-                destination = isAbroad ? dest : '';
-
-                let untilTime = 0;
-                if (member.status.until) {
-                    untilTime = parseInt(member.status.until, 10) * 1000;
-                    memberCountdowns[member.id] = untilTime;
-                } else {
-                    delete memberCountdowns[member.id];
-                }
-
-                let countdownText = '';
-                if (untilTime > 0) {
-                    let remaining = untilTime - Date.now();
-                    countdownText = remaining > 0 ? formatTime(remaining) : "00:00:00";
-                }
-
-                let statusHTML = isAbroad ? '<span class="hospital-abroad-icon">🌏</span>' : '';
-                if (countdownText) statusHTML += `<span class="faction-status-countdown">${countdownText}</span>`;
-                statusEl.innerHTML = statusHTML;
-            } else if (member.status.state === "Jail") {
-                statusEl.classList.add('faction-status-jail');
             }
-
-            if (member.status.until && parseInt(member.status.until, 10) > 0) {
-                memberCountdowns[member.id] = parseInt(member.status.until, 10) * 1000;
-            } else {
-                delete memberCountdowns[member.id];
-            }
-
-            li.dataset.destination = destination || '';
-            li.dataset.lastAction = member.last_action?.timestamp ? String(member.last_action.timestamp * 1000) : '0';
         }
 
         function updateFactionStatuses(factionID, container) {
@@ -2846,52 +3264,152 @@
         }
 
         function updateAllMemberTimers() {
-            const liElements = document.querySelectorAll(".enemy-faction .members-list li, .your-faction .members-list li");
-            liElements.forEach(li => {
-                let userID = getPlayerIdFromRow(li);
+            const rows = document.querySelectorAll(
+                ".enemy-faction .members-list li, .your-faction .members-list li, .table-body > .table-row"
+            );
+
+            rows.forEach(row => {
+                const userID = getPlayerIdFromRow(row);
                 if (!userID) return;
-                let statusEl = li.querySelector('.status');
+
+                const statusEl = row.querySelector('.status');
                 if (!statusEl) return;
+
                 if (memberCountdowns[userID]) {
                     let remaining = memberCountdowns[userID] - Date.now();
                     if (remaining < 0) remaining = 0;
-                    statusEl.textContent = formatTime(remaining);
+
+                    const countdownEl = statusEl.querySelector('.faction-status-countdown');
+
+                    if (countdownEl) {
+                        countdownEl.textContent = formatTime(remaining);
+                    }
                 }
             });
         }
 
+        function getFactionIdFromElement(el) {
+            if (!el) return null;
+
+            const directHref = el.href || el.getAttribute?.('href') || '';
+            let match = directHref.match(/ID=(\d+)/);
+            if (match) return match[1];
+
+            const link = el.querySelector?.('a[href*="factions.php"][href*="ID="]');
+            if (link) {
+                match = link.href.match(/ID=(\d+)/);
+                if (match) return match[1];
+            }
+
+            return null;
+        }
+
+        // --- Reliable page-data faction ID extraction (no API needed) ---
+
+        function getUserFactionIdFromPage() {
+            const tornDataEl = document.getElementById('torn-data');
+            if (!tornDataEl) return null;
+
+            try {
+                const data = JSON.parse(tornDataEl.textContent);
+                // Path: user.faction.faction_id
+                return data?.user?.faction?.faction_id || null;
+            } catch (e) {
+                console.warn('Could not parse torn-data JSON', e);
+                return null;
+            }
+        }
+
+        function getEnemyFromRankedWarPage(yourFactionId) {
+            if (!yourFactionId) return null;
+
+            // Torn often defines this directly.
+            if (window.__RAW_DATA__?.factions && Array.isArray(window.__RAW_DATA__.factions)) {
+                const factions = window.__RAW_DATA__.factions;
+                const enemy = factions.find(f => f.id !== yourFactionId);
+                return enemy?.id || null;
+            }
+
+            // Alternative: sometimes the data is in a script tag
+            const scripts = document.querySelectorAll('script:not([src])');
+            for (const script of scripts) {
+                const match = script.textContent.match(/window\.__RAW_DATA__\s*=\s*(\{.+?\});/s);
+                if (match) {
+                    try {
+                        const data = JSON.parse(match[1]);
+                        const enemy = data.factions?.find(f => f.id !== yourFactionId);
+                        if (enemy) return enemy.id;
+                    } catch {}
+                }
+            }
+            return null;
+        }
+
+        function getWarFactionIds() {
+            let enemyFactionId = null;
+            let yourFactionId = null;
+
+            const enemyFactionLink =
+                  document.querySelector(".opponentFactionName___vhESM") ||
+                  document.querySelector(".enemy-faction a[href*='factions.php'][href*='ID=']") ||
+                  document.querySelector("[class*='opponentFactionName']");
+
+            const yourFactionLink =
+                  document.querySelector(".currentFactionName___eq7n8") ||
+                  document.querySelector(".your-faction a[href*='factions.php'][href*='ID=']") ||
+                  document.querySelector("[class*='currentFactionName']");
+
+            enemyFactionId = getFactionIdFromElement(enemyFactionLink);
+            yourFactionId = getFactionIdFromElement(yourFactionLink);
+
+            return {
+                enemyFactionId,
+                yourFactionId
+            };
+        }
+
         function updateAPICalls() {
-            let enemyFactionLink = document.querySelector(".opponentFactionName___vhESM");
-            let yourFactionLink = document.querySelector(".currentFactionName___eq7n8");
-            if (!enemyFactionLink || !yourFactionLink) return;
+            const enemyList = document.querySelector(".enemy-faction .members-list");
+            const yourList = document.querySelector(".your-faction .members-list");
 
-            let enemyFactionIdMatch = enemyFactionLink.href.match(/ID=(\d+)/);
-            let yourFactionIdMatch = yourFactionLink.href.match(/ID=(\d+)/);
-            if (!enemyFactionIdMatch || !yourFactionIdMatch) return;
-
-            let enemyList = document.querySelector(".enemy-faction .members-list");
-            let yourList = document.querySelector(".your-faction .members-list");
             if (!enemyList || !yourList) return;
 
-            updateFactionStatuses(enemyFactionIdMatch[1], enemyList);
-            updateFactionStatuses(yourFactionIdMatch[1], yourList);
+            const ids = getWarFactionIds();
+
+            if (!ids.enemyFactionId || !ids.yourFactionId) {
+                console.warn("FF Scouter: Could not detect war faction IDs", ids);
+                return;
+            }
+
+            updateFactionStatuses(ids.enemyFactionId, enemyList);
+            updateFactionStatuses(ids.yourFactionId, yourList);
+        }
+
+        function isWarDomReady() {
+            return !!(
+                document.querySelector(".enemy-faction .members-list") &&
+                document.querySelector(".your-faction .members-list")
+            );
         }
 
         function initWarScript() {
             const enemyList = document.querySelector(".enemy-faction .members-list");
             const yourList = document.querySelector(".your-faction .members-list");
+
             if (!enemyList || !yourList) return false;
 
-            const enemyFactionLink = document.querySelector(".opponentFactionName___vhESM");
-            const yourFactionLink = document.querySelector(".currentFactionName___eq7n8");
+            const ids = getWarFactionIds();
+            const enemyId = ids.enemyFactionId || 'enemy';
+            const yourId = ids.yourFactionId || 'your';
 
-            const enemyId = enemyFactionLink?.href.match(/ID=(\d+)/)?.[1] || 'enemy';
-            const yourId = yourFactionLink?.href.match(/ID=(\d+)/)?.[1] || 'your';
             const pageKey = `war:${yourId}:${enemyId}`;
 
-            if (currentWarPageKey === pageKey &&
+            if (
+                currentWarPageKey === pageKey &&
                 document.body.contains(enemyList) &&
-                document.body.contains(yourList)) {
+                document.body.contains(yourList)
+            ) {
+                updateAPICalls();
                 return true;
             }
 
@@ -2899,18 +3417,27 @@
             currentWarPageKey = pageKey;
 
             createSortPanel();
+
             seedWarOriginalOrderMap(yourList, 'your');
             seedWarOriginalOrderMap(enemyList, 'enemy');
+
             setupWarSortObservers();
 
             const savedWarSort = GM_getValue('ff_scouter_sort_mode_war', 'none');
             if (savedWarSort !== 'none') {
                 warSortMode = savedWarSort;
-                applyWarSort(savedWarSort);
+                setTimeout(() => {
+                    applyWarSort(savedWarSort);
+                    highlightActiveSortOption();
+                }, 300);
             }
 
             updateAPICalls();
+
+            if (warStatusInterval) clearInterval(warStatusInterval);
             warStatusInterval = setInterval(updateAPICalls, API_INTERVAL);
+
+            console.log("FF Scouter: War page initialized successfully", pageKey);
 
             return true;
         }
@@ -2918,7 +3445,7 @@
         function reconcilePageState() {
             const isProfile = /factions\.php\?step=profile&ID=\d+/.test(window.location.href);
             const isMainFaction = window.location.href.includes('factions.php?step=your') && !window.location.hash.includes('/war/rank');
-            const isWar = window.location.href.includes("factions.php?step=your&type=1") && window.location.hash.includes("/war/rank");
+            const isWar = isWarDomReady();
 
             if (!isProfile && currentProfilePageKey) {
                 cleanupProfilePage();
@@ -3037,6 +3564,19 @@
             btn.style.position = 'relative';
             btn.style.zIndex = '100000';
         }
+
+        const ffWarDomObserver = new MutationObserver(() => {
+            if (isAttackPage()) return;
+
+            if (isWarDomReady()) {
+                initWarScript();
+            }
+        });
+
+        ffWarDomObserver.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
 
         function moveAttackModalLowerOnMobile() {
             const isMobile = window.matchMedia('(max-width: 768px)').matches;
